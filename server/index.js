@@ -111,8 +111,11 @@ function broadcastGameState(room) {
     const sock = io.sockets.sockets.get(pid);
     if (sock) {
       sock.emit('game_update', getPublicState(room.gameState, pid));
+    } else {
+      // Socket not found — force emit to the room as fallback
+      io.to(pid).emit('game_update', getPublicState(room.gameState, pid));
     }
-  }
+  } 
 }
 
 function _handCounts(state) {
@@ -174,13 +177,54 @@ io.on('connection', socket => {
     }
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return socket.emit('action_error', 'Name is required.');
+      
     }
 
     const room = getOrCreateRoom(roomId.trim(), socket.id);
 
     if (room.phase !== 'lobby') {
-      return socket.emit('action_error', 'Game already in progress — cannot join.');
+      // Check if this is a reconnect — same name as a disconnected player
+      const disconnectedSlot = Object.values(room.players)
+      .find(p => p.disconnected && p.name === name.trim());
+
+      if (!disconnectedSlot) {
+        return socket.emit('action_error', 'Game already in progress — cannot join.');
     }
+
+    // Reconnect: transfer the old slot to the new socket ID
+    const oldId = disconnectedSlot.id;
+    room.players[socket.id] = {
+      ...disconnectedSlot,
+      id:           socket.id,
+      disconnected: false,
+    };
+    delete room.players[oldId];
+
+    // Update gameState to point to new socket ID
+    if (room.gameState) {
+      const gs = room.gameState;
+      // Transfer hand
+      gs.hands[socket.id] = gs.hands[oldId];
+      delete gs.hands[oldId];
+      // Transfer team slot
+      for (const team of ['A', 'B']) {
+        const idx = gs.teams[team].indexOf(oldId);
+        if (idx !== -1) gs.teams[team][idx] = socket.id;
+      }
+      // Transfer player entry
+      gs.players[socket.id] = { ...gs.players[oldId], id: socket.id };
+      delete gs.players[oldId];
+      // Fix currentTurn if it was their turn
+      if (gs.currentTurn === oldId) gs.currentTurn = socket.id;
+    }
+
+    socket.join(roomId);
+    const sock = io.sockets.sockets.get(socket.id);
+    if (sock) sock.emit('game_started', getPublicState(room.gameState, socket.id));
+    broadcastHands(room);
+    io.to(roomId).emit('player_rejoined', { playerName: name.trim() });
+    return;
+  }
 
     // Leave any previous room (handles reconnects / room switching)
     const prevRooms = [...socket.rooms].filter(r => r !== socket.id);
@@ -317,9 +361,9 @@ io.on('connection', socket => {
     if (!room) return;
 
     const player = room.players[socket.id];
-    delete room.players[socket.id];
 
     if (room.phase === 'lobby') {
+      delete room.players[socket.id];
       if (Object.keys(room.players).length === 0) {
         pruneRoom(room.id);
       } else {
@@ -331,6 +375,7 @@ io.on('connection', socket => {
     } else {
       // Mid-game: keep state alive so the player can reconnect.
       // Their hand remains in gameState.hands; they rejoin via join_room.
+      room.players[socket.id].disconnected = true;
       io.to(room.id).emit('player_left', {
         playerId:   socket.id,
         playerName: player?.name ?? 'Unknown',
