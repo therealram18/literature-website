@@ -357,7 +357,7 @@ io.on('connection', socket => {
   // ── disconnect ─────────────────────────────────────────────────────────────
   socket.on('disconnect', reason => {
     console.log(`[disconnect] ${socket.id} (${reason})`);
-    const room = _roomOf(socket);
+    const room = Object.values(rooms).find(r => r.players[socket.id]);
     if (!room) return;
 
     const player = room.players[socket.id];
