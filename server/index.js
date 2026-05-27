@@ -373,8 +373,7 @@ io.on('connection', socket => {
         io.to(room.id).emit('room_update', roomSnapshot(room));
       }
     } else {
-      // Mid-game: keep state alive so the player can reconnect.
-      // Their hand remains in gameState.hands; they rejoin via join_room.
+      // Mid-game: mark as disconnected but keep their slot and hand alive
       room.players[socket.id].disconnected = true;
       io.to(room.id).emit('player_left', {
         playerId:   socket.id,
