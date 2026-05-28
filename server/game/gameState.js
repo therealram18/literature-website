@@ -30,7 +30,7 @@ function createGame(roomId, players) {
   _validatePlayers(players);
 
   const playerIds = players.map(p => p.id);
-  const hands     = dealToPlayers(playerIds);
+  const hands     = dealToPlayers(players);
 
   const teams = {
     A: players.filter(p => p.team === 'A').map(p => p.id),
