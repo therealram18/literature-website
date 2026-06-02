@@ -91,10 +91,10 @@ export default function Hand({ hand = [], resolvedSets = [], selectedCard, onSel
                   <button
                     key={cardId}
                     className={[
-                      'hand__card',
-                      `hand__card--${color}`,
-                      isSelected   ? 'hand__card--selected'   : '',
-                      !isSelectable ? 'hand__card--disabled'  : '',
+                      'play-card',
+                      color === 'red' ? 'red' : '',
+                      isSelected   ? 'selected'   : '',
+                      !isSelectable ? 'out'  : '',
                     ].join(' ').trim()}
                     onClick={() => {
                       if (!isSelectable) return;
@@ -104,8 +104,8 @@ export default function Hand({ hand = [], resolvedSets = [], selectedCard, onSel
                     aria-label={label}
                     aria-pressed={isSelected}
                   >
-                    <span className="hand__card-rank">{rank}</span>
-                    <span className="hand__card-suit">{suit}</span>
+                    <span className="val">{rank}</span>
+                    <span className="suit">{suit}</span>
                   </button>
                 );
               })}

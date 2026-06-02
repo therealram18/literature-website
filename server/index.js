@@ -169,9 +169,21 @@ function pruneRoom(roomId) {
 io.on('connection', socket => {
   console.log(`[connect] ${socket.id}`);
 
+  // ── create_room ─────────────────────────────────────────────────────────
+
+  socket.on('create_room', ({ name, avatar } = {}) => {
+    const roomId = _generateRoomId(); // add this helper from rooms.js to index.js
+    socket.emit('room_created', { roomId }); // optional, so client knows the ID
+    // then treat it exactly like join_room
+    const room = getOrCreateRoom(roomId, socket.id);
+    socket.join(roomId);
+    room.players[socket.id] = { id: socket.id, name: name.trim(), avatar, team: null };
+    io.to(roomId).emit('room_update', roomSnapshot(room));
+  });
+
   // ── join_room ──────────────────────────────────────────────────────────────
   // payload: { roomId: string, name: string }
-  socket.on('join_room', ({ roomId, name } = {}) => {
+  socket.on('join_room', ({ roomId, name, avatar } = {}) => {
     if (!roomId || typeof roomId !== 'string' || roomId.trim() === '') {
       return socket.emit('action_error', 'Invalid room ID.');
     }
@@ -244,6 +256,7 @@ io.on('connection', socket => {
       id:   socket.id,
       name: name.trim(),
       team: null,
+      avatar,
     };
 
     console.log(`[join_room] ${name} → ${roomId}`);

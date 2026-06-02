@@ -1,40 +1,46 @@
+/**
+ * Lobby.jsx
+ * Matches the #lobby screen from the HTML design.
+ *
+ * Props:
+ *   playerInfo: { name, avatar, roomId, isCreate }
+ *     — passed from AvatarPicker via App.jsx
+ *     — isCreate: true = create new room, false = join existing roomId
+ */
+
 import { useState, useEffect } from 'react';
 import socket from '../socket';
 
-/**
- * Lobby
- *
- * Phases:
- *   'join'   — player enters their name and a room ID
- *   'waiting' — player is in a room, picks a team, waits for host to start
- *
- * Props:
- *   onGameStart  — called when the server fires game_started (handled in App.jsx,
- *                  but Lobby can also react if needed)
- */
-export default function Lobby({ onGameStart }) {
-  // ── Join form state ────────────────────────────────────────────────────────
-  const [name, setName]     = useState('');
-  const [roomId, setRoomId] = useState('');
+export default function Lobby({ playerInfo }) {
+  const [room, setRoom]   = useState(null);
+  const [copied, setCopied] = useState(false);
 
-  // ── Room state (populated after joining) ──────────────────────────────────
-  const [lobbyPhase, setLobbyPhase] = useState('join');  // 'join' | 'waiting'
-  const [room, setRoom]             = useState(null);
-  const [myId, setMyId]             = useState(null);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Socket listeners
-  // ─────────────────────────────────────────────────────────────────────────
+  // Auto-connect as soon as Lobby mounts
   useEffect(() => {
-    // Fired whenever the room changes (player joins, team assigned, etc.)
+    socket.connect();
+
+    socket.once('connect', () => {
+      if (playerInfo.isCreate) {
+        // Ask the server to create a room — server will emit room_update with the new ID
+        socket.emit('create_room', {
+          name:   playerInfo.name,
+          avatar: playerInfo.avatar,
+        });
+      } else {
+        socket.emit('join_room', {
+          roomId: playerInfo.roomId,
+          name:   playerInfo.name,
+          avatar: playerInfo.avatar,
+        });
+      }
+    });
+
     socket.on('room_update', (snapshot) => {
       setRoom(snapshot);
     });
 
-    // Someone disconnected mid-lobby
     socket.on('player_left', ({ playerName }) => {
-      // room_update will follow immediately; this is just for a flash message if needed
-      console.log(`${playerName} left the room.`);
+      console.log(`${playerName} left.`);
     });
 
     return () => {
@@ -42,25 +48,6 @@ export default function Lobby({ onGameStart }) {
       socket.off('player_left');
     };
   }, []);
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Actions
-  // ─────────────────────────────────────────────────────────────────────────
-
-  function handleJoin(e) {
-    e.preventDefault();
-    if (!name.trim() || !roomId.trim()) return;
-
-    socket.connect();
-    setMyId(socket.id);
-
-    // socket.id isn't set synchronously — wait for connect event
-    socket.once('connect', () => {
-      setMyId(socket.id);
-      socket.emit('join_room', { roomId: roomId.trim().toUpperCase(), name: name.trim() });
-      setLobbyPhase('waiting');
-    });
-  }
 
   function handleTeam(team) {
     socket.emit('set_team', { team });
@@ -70,163 +57,197 @@ export default function Lobby({ onGameStart }) {
     socket.emit('start_game');
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Derived values
-  // ─────────────────────────────────────────────────────────────────────────
+  function handleCopy() {
+    if (!room?.roomId) return;
+    navigator.clipboard.writeText(room.roomId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
-  const me          = room?.players.find(p => p.id === socket.id);
-  const isHost      = room?.hostId === socket.id;
-  const teamA       = room?.players.filter(p => p.team === 'A') ?? [];
-  const teamB       = room?.players.filter(p => p.team === 'B') ?? [];
-  const unassigned  = room?.players.filter(p => !p.team) ?? [];
-  const totalPlayers = room?.players.length ?? 0;
+  function handleShuffle() {
+    socket.emit('shuffle_teams');
+  }
+
+  // ── Derived values ────────────────────────────────────────────────────────
+  const me         = room?.players.find(p => p.id === socket.id);
+  const isHost     = room?.hostId === socket.id;
+  const teamA      = room?.players.filter(p => p.team === 'A') ?? [];
+  const teamB      = room?.players.filter(p => p.team === 'B') ?? [];
+  const unassigned = room?.players.filter(p => !p.team) ?? [];
+  const total      = room?.players.length ?? 0;
 
   const canStart =
     isHost &&
-    totalPlayers >= 4 &&
-    totalPlayers % 2 === 0 &&
+    total >= 4 &&
+    total % 2 === 0 &&
     unassigned.length === 0 &&
     teamA.length === teamB.length;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render: Join screen
-  // ─────────────────────────────────────────────────────────────────────────
-
-  if (lobbyPhase === 'join') {
+  // ── Loading state (before first room_update) ──────────────────────────────
+  if (!room) {
     return (
-      <div className="lobby lobby--join">
-        <h1 className="lobby__title">Literature</h1>
-
-        <form className="lobby__form" onSubmit={handleJoin}>
-          <div className="lobby__field">
-            <label htmlFor="name">Your name</label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Enter your name"
-              maxLength={20}
-              autoFocus
-              required
-            />
+      <div className="screen active">
+        <div className="lobby-wrap">
+          <div className="lobby-header">
+            <div>
+              <div style={{fontFamily:"'Baloo 2',sans-serif",fontSize:'24px',fontWeight:800,color:'#fff',marginBottom:'4px'}}>
+                Connecting…
+              </div>
+            </div>
           </div>
-
-          <div className="lobby__field">
-            <label htmlFor="roomId">Room code</label>
-            <input
-              id="roomId"
-              type="text"
-              value={roomId}
-              onChange={e => setRoomId(e.target.value.toUpperCase())}
-              placeholder="e.g. ABC123"
-              maxLength={6}
-              required
-            />
-          </div>
-
-          <button className="lobby__btn lobby__btn--primary" type="submit">
-            Join Room
-          </button>
-        </form>
+        </div>
       </div>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render: Waiting room
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Waiting room ──────────────────────────────────────────────────────────
+  // Max 6 slots shown (expandable later)
+  const MAX_SLOTS = 6;
+  const slots = [
+    ...room.players,
+    ...Array(Math.max(0, MAX_SLOTS - room.players.length)).fill(null),
+  ];
 
   return (
-    <div className="lobby lobby--waiting">
-      <h1 className="lobby__title">Literature</h1>
-      <p className="lobby__room-code">Room: <strong>{room?.roomId}</strong></p>
+    <div className="screen active">
+      <div className="lobby-wrap">
 
-      {/* Team selection */}
-      <div className="lobby__team-select">
-        <p>Pick your team:</p>
-        <div className="lobby__team-btns">
-          <button
-            className={`lobby__btn lobby__btn--team ${me?.team === 'A' ? 'lobby__btn--active' : ''}`}
-            onClick={() => handleTeam('A')}
-          >
-            Team A
-          </button>
-          <button
-            className={`lobby__btn lobby__btn--team ${me?.team === 'B' ? 'lobby__btn--active' : ''}`}
-            onClick={() => handleTeam('B')}
-          >
-            Team B
-          </button>
-        </div>
-      </div>
-
-      {/* Player list */}
-      <div className="lobby__players">
-        <div className="lobby__team-col">
-          <h3>Team A ({teamA.length})</h3>
-          <ul>
-            {teamA.map(p => (
-              <li key={p.id} className={p.id === socket.id ? 'lobby__player--me' : ''}>
-                {p.name} {p.id === room?.hostId && <span className="lobby__host-badge">host</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="lobby__team-col">
-          <h3>Team B ({teamB.length})</h3>
-          <ul>
-            {teamB.map(p => (
-              <li key={p.id} className={p.id === socket.id ? 'lobby__player--me' : ''}>
-                {p.name} {p.id === room?.hostId && <span className="lobby__host-badge">host</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {unassigned.length > 0 && (
-          <div className="lobby__team-col lobby__team-col--unassigned">
-            <h3>No team yet ({unassigned.length})</h3>
-            <ul>
-              {unassigned.map(p => (
-                <li key={p.id} className={p.id === socket.id ? 'lobby__player--me' : ''}>
-                  {p.name} {p.id === room?.hostId && <span className="lobby__host-badge">host</span>}
-                </li>
-              ))}
-            </ul>
+        {/* Header */}
+        <div className="lobby-header">
+          <div>
+            <div style={{fontFamily:"'Baloo 2',sans-serif",fontSize:'24px',fontWeight:800,color:'#fff',marginBottom:'4px'}}>
+              Game Lobby 🎮
+            </div>
+            <div style={{fontSize:'13px',color:'rgba(255,255,255,0.75)'}}>
+              Waiting for everyone to show up...
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* Start / waiting */}
-      <div className="lobby__footer">
-        {isHost ? (
-          <>
+          <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+            <div className="room-code">{room.roomId}</div>
             <button
-              className="lobby__btn lobby__btn--primary"
+              className="big-btn btn-outline"
+              style={{width:'auto',padding:'8px 16px',fontSize:'13px'}}
+              onClick={handleCopy}
+            >
+              {copied ? 'Copied! ✓' : 'Copy 📋'}
+            </button>
+          </div>
+        </div>
+
+        {/* Players + Teams */}
+        <div className="two-col">
+
+          {/* Players joined */}
+          <div className="card">
+            <div className="section-title">
+              <span style={{background:'var(--green)',color:'#fff',width:'20px',height:'20px',borderRadius:'50%',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',border:'2px solid var(--dark)'}}>✓</span>
+              Players Joined
+            </div>
+            {slots.map((p, i) => (
+              <div key={i} className="player-pill">
+                <span className={`player-pip${p ? '' : ' empty'}`} />
+                {p ? (
+                  <>
+                    <span>{p.name}</span>
+                    {p.id === room.hostId && (
+                      <span className="sticker" style={{marginLeft:'auto',fontSize:'9px',padding:'2px 6px'}}>Host</span>
+                    )}
+                    {p.id === socket.id && (
+                      <span className="sticker" style={{marginLeft: p.id === room.hostId ? '4px' : 'auto',fontSize:'9px',padding:'2px 6px',background:'var(--blue)',color:'#fff'}}>You</span>
+                    )}
+                  </>
+                ) : (
+                  <span style={{color:'#aaa'}}>Waiting...</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Teams */}
+          <div className="card">
+            <div className="section-title">
+              <span style={{background:'var(--pink)',color:'#fff',padding:'2px 8px',borderRadius:'6px',border:'2px solid var(--dark)'}}>Teams</span>
+            </div>
+
+            <div className="team-block">
+              <div className="team-name-input" style={{borderColor:'var(--blue)',display:'flex',alignItems:'center',gap:'8px'}}>
+                ⚡ Team A
+                {me?.team !== 'A' && (
+                  <button
+                    onClick={() => handleTeam('A')}
+                    style={{marginLeft:'auto',padding:'2px 10px',fontSize:'11px',fontWeight:700,background:'var(--blue)',color:'#fff',border:'2px solid var(--dark)',borderRadius:'8px',cursor:'pointer'}}
+                  >
+                    Join
+                  </button>
+                )}
+              </div>
+              {teamA.map(p => (
+                <div key={p.id} className="player-pill" style={{borderColor:'var(--blue)',background:'#EFF6FF'}}>
+                  <span className="player-pip" style={{background:'var(--blue)'}} />
+                  {p.name}
+                  {p.id === socket.id && <span style={{marginLeft:'auto',fontSize:'11px',color:'var(--blue)',fontWeight:700}}>you</span>}
+                </div>
+              ))}
+            </div>
+
+            <div className="team-block">
+              <div className="team-name-input" style={{borderColor:'var(--pink)',display:'flex',alignItems:'center',gap:'8px'}}>
+                🔥 Team B
+                {me?.team !== 'B' && (
+                  <button
+                    onClick={() => handleTeam('B')}
+                    style={{marginLeft:'auto',padding:'2px 10px',fontSize:'11px',fontWeight:700,background:'var(--pink)',color:'#fff',border:'2px solid var(--dark)',borderRadius:'8px',cursor:'pointer'}}
+                  >
+                    Join
+                  </button>
+                )}
+              </div>
+              {teamB.map(p => (
+                <div key={p.id} className="player-pill" style={{borderColor:'var(--pink)',background:'#FFF0F7'}}>
+                  <span className="player-pip" style={{background:'var(--pink)'}} />
+                  {p.name}
+                  {p.id === socket.id && <span style={{marginLeft:'auto',fontSize:'11px',color:'var(--pink)',fontWeight:700}}>you</span>}
+                </div>
+              ))}
+            </div>
+
+            {unassigned.length > 0 && (
+              <div style={{fontSize:'12px',color:'#aaa',marginTop:'8px'}}>
+                {unassigned.map(p => p.name).join(', ')} — no team yet
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{display:'flex',gap:'10px'}}>
+          {/* <button className="big-btn btn-outline" style={{flex:1}} onClick={handleShuffle}>
+            Shuffle Teams 🔀
+          </button> */}
+          {isHost ? (
+            <button
+              className="big-btn btn-green"
+              style={{flex:1}}
               onClick={handleStart}
               disabled={!canStart}
+              title={
+                !canStart
+                  ? unassigned.length > 0 ? 'All players must pick a team'
+                  : total < 4 ? 'Need at least 4 players'
+                  : teamA.length !== teamB.length ? 'Teams must be equal'
+                  : ''
+                  : ''
+              }
             >
-              Start Game
+              Start Game 🚀
             </button>
-            {!canStart && (
-              <p className="lobby__hint">
-                {unassigned.length > 0
-                  ? 'All players must pick a team.'
-                  : totalPlayers < 4
-                  ? 'Need at least 4 players.'
-                  : totalPlayers % 2 !== 0
-                  ? 'Need an even number of players.'
-                  : teamA.length !== teamB.length
-                  ? 'Teams must be equal size.'
-                  : ''}
-              </p>
-            )}
-          </>
-        ) : (
-          <p className="lobby__waiting">Waiting for the host to start the game…</p>
-        )}
+          ) : (
+            <button className="big-btn btn-green" style={{flex:1,opacity:0.5}} disabled>
+              Waiting for host…
+            </button>
+          )}
+        </div>
+
       </div>
     </div>
   );
