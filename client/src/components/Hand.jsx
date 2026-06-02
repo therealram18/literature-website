@@ -44,73 +44,27 @@ function parseCard(cardId) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Hand({ hand = [], resolvedSets = [], selectedCard, onSelectCard }) {
-  // Group hand cards by set, preserving canonical set order
-  const cardsBySet = {};
-  for (const cardId of hand) {
-    const setName = CARD_TO_SET[cardId];
-    if (!cardsBySet[setName]) cardsBySet[setName] = [];
-    cardsBySet[setName].push(cardId);
-  }
-
-  // Only render sets where the player holds at least one card,
-  // or sets that are resolved (so the player can see what's gone)
-  const setsToShow = Object.keys(SETS).filter(
-    setName => cardsBySet[setName]?.length > 0
-  );
-
-  if (setsToShow.length === 0) {
-    return (
-      <div className="hand hand--empty">
-        <p className="hand__empty-msg">You have no cards.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="hand">
-      {setsToShow.map(setName => {
-        const isResolved = resolvedSets.includes(setName);
-        const cards      = cardsBySet[setName];
-
+    <div className="card-hand">
+      {hand.map(cardId => {
+        const { rank, suit, color, label } = parseCard(cardId);
+        const isSelected  = selectedCard === cardId;
+        
         return (
-          <div
-            key={setName}
-            className={`hand__set ${isResolved ? 'hand__set--resolved' : ''}`}
+          <button
+            key={cardId}
+            className={[
+              'play-card',
+              color === 'red' ? 'red' : '',
+              isSelected   ? 'selected'   : '',
+            ].join(' ').trim()}
+            onClick={() => onSelectCard?.(isSelected ? null : cardId)}
+            aria-label={label}
+            aria-pressed={isSelected}
           >
-            <span className="hand__set-label">
-              {SET_DISPLAY_NAMES[setName]}
-            </span>
-
-            <div className="hand__cards">
-              {cards.map(cardId => {
-                const { rank, suit, color, label } = parseCard(cardId);
-                const isSelected  = selectedCard === cardId;
-                const isSelectable = !isResolved;
-
-                return (
-                  <button
-                    key={cardId}
-                    className={[
-                      'play-card',
-                      color === 'red' ? 'red' : '',
-                      isSelected   ? 'selected'   : '',
-                      !isSelectable ? 'out'  : '',
-                    ].join(' ').trim()}
-                    onClick={() => {
-                      if (!isSelectable) return;
-                      onSelectCard?.(isSelected ? null : cardId);
-                    }}
-                    disabled={!isSelectable}
-                    aria-label={label}
-                    aria-pressed={isSelected}
-                  >
-                    <span className="val">{rank}</span>
-                    <span className="suit">{suit}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+            <span className="val">{rank}</span>
+            <span className="suit">{suit}</span>
+          </button>
         );
       })}
     </div>

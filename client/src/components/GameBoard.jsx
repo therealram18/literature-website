@@ -118,7 +118,7 @@ export default function GameBoard({ gameState }) {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" style={{ maxWidth: '1100px', margin: '2rem auto', padding: '0 20px' }}>
       <div className="table-layout">
 
       {/* ── Scoreboard ─────────────────────────────────────────────────── */}
@@ -140,7 +140,12 @@ export default function GameBoard({ gameState }) {
           <div
             key={seat.pid}
             className="seat"
-            style={{ left: `${seat.cx}%`, top: `${seat.cy}%` }}
+            style={{ 
+              position: 'absolute', 
+              transform: 'translate(-50%, -50%)', 
+              left: `${seat.cx}%`, 
+              top: `${seat.cy}%` 
+            }}
           >
             <div
               className={[
