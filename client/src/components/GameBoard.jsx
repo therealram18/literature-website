@@ -101,7 +101,7 @@ export default function GameBoard({ gameState }) {
 
   function computeSeats(playerOrder, players, myId, handCounts, currentTurn) {
     const n = playerOrder.length;
-    const myIdx = playerOrder.indexOf(myId);
+    const myIdx = playerOrder.indexOf(myId) !== -1 ? playerOrder.indexOf(myId) : 0;
     const rx = 39, ry = 36;
     return playerOrder.map((pid, i) => {
       const offset = (i - myIdx + n) % n;
@@ -116,196 +116,200 @@ export default function GameBoard({ gameState }) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Fallback to Object.keys if playerOrder is empty/missing from the backend
+  const pOrder = playerOrder?.length > 0 ? playerOrder : Object.keys(players);
 
-  console.log("Seats rendering: ", computeSeats(playerOrder, players, myId, handCounts, currentTurn));
+  console.log("Seats rendering: ", computeSeats(pOrder, players, myId, handCounts, currentTurn));
 
   return (
-    <div className="table-wrap">
-      <div className="table-layout">
+    <div className="screen active">
+      <div className="table-wrap">
+        <div className="table-layout">
 
-        {/* ── Scoreboard ─────────────────────────────────────────────────── */}
-        <div className="table-header">
-          <div className="turn-banner">
-            <span>★</span>
-            {isMyTurn ? <strong>Your turn</strong> : <span>{players[currentTurn]?.name ?? '…'}'s turn</span>}
+          {/* ── Scoreboard ─────────────────────────────────────────────────── */}
+          <div className="table-header">
+            <div className="turn-banner">
+              <span>★</span>
+              {isMyTurn ? <strong>Your turn</strong> : <span>{players[currentTurn]?.name ?? '…'}'s turn</span>}
+            </div>
           </div>
-        </div>
 
-        {/* ── Players panel ──────────────────────────────────────────────── */}
-        <div className="felt-zone">
-          <div className="felt-inner" />
-          <div className="felt-logo">LITERATURE</div>
-          
-          {computeSeats(playerOrder, players, myId, handCounts, currentTurn).map(seat => {
-            const p = players[seat.pid];
-            if (!p) return null;
-            const isOpponent = p.team !== myTeam;
-            const canAsk = isMyTurn && selectedCard && isOpponent;
+          {/* ── Players panel ──────────────────────────────────────────────── */}
+          <div className="felt-zone">
+            <div className="felt-inner" />
+            <div className="felt-logo">LITERATURE</div>
+            
+            {computeSeats(pOrder, players, myId, handCounts, currentTurn).map(seat => {
+              const p = players[seat.pid];
+              if (!p) return null;
+              const isOpponent = p.team !== myTeam;
+              const canAsk = isMyTurn && selectedCard && isOpponent;
 
-            return (
-              <div
-                key={seat.pid}
-                className="seat"
-                style={{ left: `${seat.cx}%`, top: `${seat.cy}%` }} /* Stripped absolute/transform to trust CSS */
-              >
+              return (
                 <div
-                  className={[
-                    'seat-bubble',
-                    seat.pid === myId ? 'you' : `team-${p.team?.toLowerCase()}`,
-                    seat.pid === currentTurn ? 'active' : '',
-                  ].join(' ').trim()}
-                  onClick={() => canAsk && handleSelectTarget(seat.pid)}
-                  style={{ cursor: canAsk ? 'pointer' : 'default' }}
+                  key={seat.pid}
+                  className="seat"
+                  style={{ left: `${seat.cx}%`, top: `${seat.cy}%` }} /* Stripped absolute/transform to trust CSS */
                 >
-                  {seat.pid === currentTurn && <div className="seat-badge">★</div>}
-                  
-                  {/* Clean up Avatar Image */}
-                  {p.avatar ? (
-                    <img src={p.avatar} alt={p.name} />
-                  ) : (
-                    <span>{p.name?.substring(0, 3).toUpperCase()}</span>
-                  )}
+                  <div
+                    className={[
+                      'seat-bubble',
+                      seat.pid === myId ? 'you' : `team-${p.team?.toLowerCase()}`,
+                      seat.pid === currentTurn ? 'active' : '',
+                    ].join(' ').trim()}
+                    onClick={() => canAsk && handleSelectTarget(seat.pid)}
+                    style={{ cursor: canAsk ? 'pointer' : 'default' }}
+                  >
+                    {seat.pid === currentTurn && <div className="seat-badge">★</div>}
+                    
+                    {/* Clean up Avatar Image */}
+                    {p.avatar ? (
+                      <img src={p.avatar} alt={p.name} />
+                    ) : (
+                      <span>{p.name?.substring(0, 3).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="seat-label">{p.name}</div>
+                  <div className="card-count-chip">{handCounts[seat.pid] ?? 0} cards</div>
                 </div>
-                <div className="seat-label">{p.name}</div>
-                <div className="card-count-chip">{handCounts[seat.pid] ?? 0} cards</div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        {/* ── Ask action bar ─────────────────────────────────────────────── */}
-        {isMyTurn && (
+          {/* ── Ask action bar ─────────────────────────────────────────────── */}
+          {isMyTurn && (
+            <div className="hand-section">
+              <div className="section-title">
+                <span>🎯</span> Your Turn Action
+              </div>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="tag">Ask for:</span>
+                <select
+                  className="fun-input"
+                  value={selectedCard || ''}
+                  onChange={(e) => {
+                    setSelectedCard(e.target.value || null);
+                    setSelectedTarget(null); // reset target on card change
+                  }}
+                  style={{ width: 'auto', padding: '6px 12px' }}
+                >
+                  <option value="">-- Choose a card --</option>
+                  {validAskCards.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+
+                {!selectedCard && <span className="tag" style={{ background: '#f0f0f0' }}>Select a card you own the set for</span>}
+                {selectedCard && !selectedTarget && <span className="sticker">Now click an opponent avatar!</span>}
+                
+                {selectedCard && selectedTarget && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>
+                      Ask {players[selectedTarget]?.name}?
+                    </span>
+                    <button className="big-btn btn-orange" style={{ padding: '6px 16px', fontSize: '13px' }} onClick={handleAsk}>Ask!</button>
+                    <button className="big-btn btn-outline" style={{ padding: '6px 16px', fontSize: '13px' }} onClick={() => { setSelectedCard(null); setSelectedTarget(null); }}>Cancel</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Your hand ──────────────────────────────────────────────────── */}
           <div className="hand-section">
             <div className="section-title">
-              <span>🎯</span> Your Turn Action
+              Your hand ({myHand.length} cards)
             </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ fontWeight: '600', fontSize: '13px' }}>Ask for: </label>
-              <select
-                className="fun-input"
-                value={selectedCard || ''}
-                onChange={(e) => {
-                  setSelectedCard(e.target.value || null);
-                  setSelectedTarget(null); // reset target on card change
-                }}
-                style={{ width: 'auto', padding: '8px 12px' }}
-              >
-                <option value="">-- Choose a card --</option>
-                {validAskCards.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+            <Hand
+              hand={myHand}
+              resolvedSets={resolvedSets}
+              selectedCard={selectedCard} /* Re-enabled so you see what is selected */
+              onSelectCard={handleSelectCard}
+            />
+          </div>
 
-              {!selectedCard && <span className="tag">Select a card from a set you own</span>}
-              {selectedCard && !selectedTarget && <span className="tag" style={{background: 'var(--yellow)'}}>Now click an opponent avatar!</span>}
-              
-              {selectedCard && selectedTarget && (
-                <>
-                  <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                    Ask {players[selectedTarget]?.name}?
+        {/* ── Add sidebar ────────────────────────────────────────────────── */}
+
+        <div className="table-sidebar">
+
+          {/* Scores */}
+          <div className="score-strip">
+            {Object.entries(score).map(([team, pts]) => (
+              <div key={team} className="score-chip"
+                style={{ background: team === 'A' ? '#EFF6FF' : '#FFF0F7' }}>
+                <div className="s-left">
+                  <span className="s-label">Team {team}</span>
+                  <span className="s-sub">
+                    {(wonSets[team] ?? []).join(', ') || 'No sets yet'}
                   </span>
-                  <button className="big-btn btn-orange" style={{width:'auto', padding:'8px 16px'}} onClick={handleAsk}>Ask!</button>
-                  <button className="big-btn btn-outline" style={{width:'auto', padding:'8px 16px'}} onClick={() => { setSelectedCard(null); setSelectedTarget(null); }}>Cancel</button>
-                </>
+                </div>
+                <div className="s-num">{pts}</div>
+              </div>
+            ))}
+            {discardedSets.length > 0 && (
+              <div className="score-chip" style={{ background: '#F9FAFB' }}>
+                <div className="s-left">
+                  <span className="s-label">Discarded</span>
+                  <span className="s-sub">{discardedSets.join(', ')}</span>
+                </div>
+                <div className="s-num" style={{ fontSize: 20 }}>✗</div>
+              </div>
+            )}
+          </div>
+
+          {/* Claim button */}
+          <div className="action-row">
+            <button className="big-btn btn-pink" onClick={() => setShowClaim(true)}>
+              Claim a Set
+            </button>
+          </div>
+
+          {/* Activity log */}
+          <div className="activity-log">
+            <div className="log-title" id="logTitle">Last move</div>
+            <div id="logContent">
+              {lastAction ? (
+                <div className="log-item log-main">
+                  {lastAction.type === 'ask' && (
+                    <span>
+                      <strong>{players[lastAction.askerId]?.name}</strong> asked{' '}
+                      <strong>{players[lastAction.targetId]?.name}</strong> for{' '}
+                      <strong>{lastAction.card}</strong> —{' '}
+                      {lastAction.success ? 'got it! 🎉' : 'nope 😅'}
+                    </span>
+                  )}
+                  {lastAction.type === 'claim' && (
+                    <span>
+                      <strong>{players[lastAction.claimerId]?.name}</strong> claimed{' '}
+                      <strong>{lastAction.setId}</strong> —{' '}
+                      {lastAction.result === 'claimed' ? '✅ correct!' :
+                      lastAction.result === 'discarded' ? '❌ discarded' :
+                      '⚡ opponent wins!'}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="log-item" style={{ color: '#aaa' }}>No moves yet</div>
               )}
             </div>
           </div>
+
+        </div>
+
+        {/* ── Claim modal ────────────────────────────────────────────────── */}
+        {showClaim && (
+          <ClaimModal
+            players={allPlayers}
+            myId={myId}
+            myTeam={myTeam}
+            resolvedSets={resolvedSets}
+            onSubmit={handleClaimSubmit}
+            onClose={() => setShowClaim(false)}
+          />
         )}
 
-        {/* ── Your hand ──────────────────────────────────────────────────── */}
-        <div className="hand-section">
-          <div className="section-title">
-            Your hand ({myHand.length} cards)
-          </div>
-          <Hand
-            hand={myHand}
-            resolvedSets={resolvedSets}
-            selectedCard={selectedCard} /* Re-enabled so you see what is selected */
-            onSelectCard={handleSelectCard}
-          />
-        </div>
-
-      {/* ── Add sidebar ────────────────────────────────────────────────── */}
-
-      <div className="table-sidebar">
-
-        {/* Scores */}
-        <div className="score-strip">
-          {Object.entries(score).map(([team, pts]) => (
-            <div key={team} className="score-chip"
-              style={{ background: team === 'A' ? '#EFF6FF' : '#FFF0F7' }}>
-              <div className="s-left">
-                <span className="s-label">Team {team}</span>
-                <span className="s-sub">
-                  {(wonSets[team] ?? []).join(', ') || 'No sets yet'}
-                </span>
-              </div>
-              <div className="s-num">{pts}</div>
-            </div>
-          ))}
-          {discardedSets.length > 0 && (
-            <div className="score-chip" style={{ background: '#F9FAFB' }}>
-              <div className="s-left">
-                <span className="s-label">Discarded</span>
-                <span className="s-sub">{discardedSets.join(', ')}</span>
-              </div>
-              <div className="s-num" style={{ fontSize: 20 }}>✗</div>
-            </div>
-          )}
-        </div>
-
-        {/* Claim button */}
-        <div className="action-row">
-          <button className="big-btn btn-pink" onClick={() => setShowClaim(true)}>
-            Claim a Set
-          </button>
-        </div>
-
-        {/* Activity log */}
-        <div className="activity-log">
-          <div className="log-title" id="logTitle">Last move</div>
-          <div id="logContent">
-            {lastAction ? (
-              <div className="log-item log-main">
-                {lastAction.type === 'ask' && (
-                  <span>
-                    <strong>{players[lastAction.askerId]?.name}</strong> asked{' '}
-                    <strong>{players[lastAction.targetId]?.name}</strong> for{' '}
-                    <strong>{lastAction.card}</strong> —{' '}
-                    {lastAction.success ? 'got it! 🎉' : 'nope 😅'}
-                  </span>
-                )}
-                {lastAction.type === 'claim' && (
-                  <span>
-                    <strong>{players[lastAction.claimerId]?.name}</strong> claimed{' '}
-                    <strong>{lastAction.setId}</strong> —{' '}
-                    {lastAction.result === 'claimed' ? '✅ correct!' :
-                    lastAction.result === 'discarded' ? '❌ discarded' :
-                    '⚡ opponent wins!'}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="log-item" style={{ color: '#aaa' }}>No moves yet</div>
-            )}
-          </div>
-        </div>
-
       </div>
-
-      {/* ── Claim modal ────────────────────────────────────────────────── */}
-      {showClaim && (
-        <ClaimModal
-          players={allPlayers}
-          myId={myId}
-          myTeam={myTeam}
-          resolvedSets={resolvedSets}
-          onSubmit={handleClaimSubmit}
-          onClose={() => setShowClaim(false)}
-        />
-      )}
-
-    </div>
+      </div>
     </div>
   );
 }
