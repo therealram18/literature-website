@@ -136,50 +136,86 @@ export default function GameBoard({ gameState }) {
       <div className="felt-zone" style={{ position: 'relative' }}>
         <div className="felt-inner" />
         <div className="felt-logo">LITERATURE</div>
-        {computeSeats(playerOrder, players, myId, handCounts, currentTurn).map(seat => (
-          <div
-            key={seat.pid}
-            className="seat"
-            style={{ 
-              position: 'absolute', 
-              transform: 'translate(-50%, -50%)', 
-              left: `${seat.cx}%`, 
-              top: `${seat.cy}%` 
-            }}
-          >
+        
+        {computeSeats(playerOrder, players, myId, handCounts, currentTurn).map(seat => {
+
+          const p = players[seat.pid];
+          if (!p) return null;
+          const isOpponent = p.team !== myTeam;
+          const canAsk = isMyTurn && selectedCard && isOpponent;
+
+          return (
             <div
-              className={[
-                'seat-bubble',
-                seat.pid === myId ? 'you' : `team-${players[seat.pid]?.team?.toLowerCase()}`,
-                seat.pid === currentTurn ? 'active' : '',
-              ].join(' ').trim()}
-              onClick={() => {
-                if (isMyTurn && selectedCard && players[seat.pid]?.team !== myTeam) {
-                  handleSelectTarget(seat.pid);
-                }
+              key={seat.pid}
+              className="seat"
+              style={{ 
+                position: 'absolute', 
+                transform: 'translate(-50%, -50%)', 
+                left: `${seat.cx}%`, 
+                top: `${seat.cy}%`,
+                zIndex: 10 /* Ensures avatars stay on top of the green board */
               }}
-              style={{ cursor: isMyTurn && selectedCard && players[seat.pid]?.team !== myTeam ? 'pointer' : 'default' }}
             >
-              {seat.pid === currentTurn && <div className="seat-badge">★</div>}
-              {players[seat.pid]?.name?.substring(0, 3).toUpperCase()}
+              <div
+                className={[
+                  'seat-bubble',
+                  seat.pid === myId ? 'you' : `team-${p.team?.toLowerCase()}`,
+                  seat.pid === currentTurn ? 'active' : '',
+                ].join(' ').trim()}
+                onClick={() => canAsk && handleSelectTarget(seat.pid)}
+                style={{ cursor: canAsk ? 'pointer' : 'default' }}
+              >
+                {seat.pid === currentTurn && <div className="seat-badge">★</div>}
+                
+                {/* Render Avatar if exists, otherwise text */}
+                {p.avatar ? (
+                  <img 
+                    src={p.avatar} 
+                    alt={p.name} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                  />
+                ) : (
+                  p.name?.substring(0, 3).toUpperCase()
+                )}
+              </div>
+              <div className="seat-label">{p.name}</div>
+              <div className="card-count-chip">{handCounts[seat.pid] ?? 0} cards</div>
             </div>
-            <div className="seat-label">{players[seat.pid]?.name}</div>
-            <div className="card-count-chip">{handCounts[seat.pid] ?? 0} cards</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── Ask action bar ─────────────────────────────────────────────── */}
-      {isMyTurn && selectedCard && selectedTarget && (
-        <div className="action-confirm-bar">
-          <p>Ask <strong>{players[selectedTarget]?.name}</strong> for <strong>{selectedCard}</strong>?</p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="big-btn btn-orange" style={{ flex: 1 }} onClick={handleAsk}>Ask</button>
-            <button className="big-btn btn-outline" style={{ flex: 1 }}
-              onClick={() => { setSelectedCard(null); setSelectedTarget(null); }}>
-              Cancel
-            </button>
+      {isMyTurn && (
+        <div className="action-confirm-bar" style={{ background: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+          
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <label style={{ fontWeight: 'bold' }}>Ask for: </label>
+            <select
+              value={selectedCard || ''}
+              onChange={(e) => {
+                setSelectedCard(e.target.value || null);
+                setSelectedTarget(null); // reset target on card change
+              }}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
+            >
+              <option value="">-- Choose a card --</option>
+              {validAskCards.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
+
+          {!selectedCard && <p style={{ margin: 0, color: '#666' }}>Select a card you want to ask for.</p>}
+          {selectedCard && !selectedTarget && <p style={{ margin: 0, color: '#d97706', fontWeight: 'bold' }}>Now click on an opponent to ask them.</p>}
+          
+          {selectedCard && selectedTarget && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '10px' }}>
+              <p style={{ margin: 0 }}>Ask <strong>{players[selectedTarget]?.name}</strong> for <strong>{selectedCard}</strong>?</p>
+              <button className="big-btn btn-orange" onClick={handleAsk}>Ask!</button>
+              <button className="big-btn btn-outline" onClick={() => { setSelectedCard(null); setSelectedTarget(null); }}>Cancel</button>
+            </div>
+          )}
         </div>
       )}
       
@@ -192,8 +228,8 @@ export default function GameBoard({ gameState }) {
         <Hand
           hand={myHand}
           resolvedSets={resolvedSets}
-          selectedCard={isMyTurn ? selectedCard : null}
-          onSelectCard={isMyTurn ? handleSelectCard : undefined}
+          selectedCard={null}
+          onSelectCard={undefined}
         />
       </div>
 
