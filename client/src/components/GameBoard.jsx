@@ -59,6 +59,43 @@ export default function GameBoard({ gameState }) {
   const opponents     = allPlayers.filter(p => p.team !== myTeam);
   const teammates     = allPlayers.filter(p => p.team === myTeam && p.id !== myId);
 
+  // ── Custom Alternating Sort Logic ──────────────────────────────────────────
+  
+  // Alternating Red/Black order matching the IDs in your sets.js file
+  const SET_ORDER = [
+    'LOW_D',  // Red (Lower Diamonds)
+    'LOW_S',  // Black (Lower Spades)
+    'LOW_H',  // Red (Lower Hearts)
+    'LOW_C',  // Black (Lower Clubs)
+    'HIGH_D', // Red (Upper Diamonds)
+    'HIGH_S', // Black (Upper Spades)
+    'HIGH_H', // Red (Upper Hearts)
+    'HIGH_C', // Black (Upper Clubs)
+    'SEVENS'  // Wildcards
+  ];
+
+  // Sort the hand using the custom alternating sequence
+  const sortedHand = [...myHand].sort((cardA, cardB) => {
+    const setA = CARD_TO_SET[cardA];
+    const setB = CARD_TO_SET[cardB];
+    
+    const indexA = SET_ORDER.indexOf(setA);
+    const indexB = SET_ORDER.indexOf(setB);
+    
+    // 1. Sort by the alternating Set Order
+    if (indexA !== indexB) {
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    }
+    
+    // 2. Sort alphabetically within the same set
+    if (cardA < cardB) return -1;
+    if (cardA > cardB) return 1;
+    
+    return 0; 
+  });
+
   // Calculate valid cards to ask for (must own a card in the set, but not the card itself)
   const validAskCards = [];
   if (isMyTurn && myHand.length > 0) {
@@ -193,7 +230,7 @@ export default function GameBoard({ gameState }) {
               Your hand ({myHand.length} cards)
             </div>
             <Hand
-              hand={myHand}
+              hand={sortedHand}
               resolvedSets={resolvedSets}
               selectedCard={selectedCard} /* Re-enabled so you see what is selected */
               onSelectCard={handleSelectCard}

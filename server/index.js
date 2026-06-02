@@ -294,6 +294,7 @@ io.on('connection', socket => {
       id:   p.id,
       name: p.name,
       team: p.team,
+      avatar: p.avatar,
     }));
 
     try {

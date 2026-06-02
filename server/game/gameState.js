@@ -43,7 +43,7 @@ function createGame(roomId, players) {
   return {
     roomId,
     phase:       'playing',       // 'lobby' | 'playing' | 'finished'
-    players:     Object.fromEntries(players.map(p => [p.id, { id: p.id, name: p.name, team: p.team }])),
+    players:     Object.fromEntries(players.map(p => [p.id, { id: p.id, name: p.name, team: p.team, avatar: p.avatar }])),
     teams,
     hands,                        // { [playerId]: string[] }  — PRIVATE
     currentTurn: firstPlayer,
@@ -260,7 +260,7 @@ function claimSet(state, claimerId, setName, mapping) {
       newState.wonSets[claimerTeam].push(setName);
       newState.lastAction = {
         type:    'claim_success',
-        by:      claimerId,
+        claimerId:      claimerId,
         detail:  `${claimerName} claimed ${SET_DISPLAY_NAMES[setName]} — correct! ${claimerTeam} wins the set.`,
         setName,
       };
@@ -276,7 +276,7 @@ function claimSet(state, claimerId, setName, mapping) {
       newState.discardedSets.push(setName);
       newState.lastAction = {
         type:    'claim_discard',
-        by:      claimerId,
+        claimerId:      claimerId,
         detail:  `${claimerName} claimed ${SET_DISPLAY_NAMES[setName]} — wrong locations! Set discarded. Turn passes to team ${opponentTeam}.`,
         setName,
       };
