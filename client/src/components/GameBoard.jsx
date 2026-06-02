@@ -36,6 +36,7 @@ export default function GameBoard({ gameState }) {
   const {
     players = {},
     teams = {},
+    playerOrder = [],
     myHand = [],
     handCounts = {},
     currentTurn = null,
@@ -135,7 +136,7 @@ export default function GameBoard({ gameState }) {
       <div className="felt-zone" style={{ position: 'relative' }}>
         <div className="felt-inner" />
         <div className="felt-logo">LITERATURE</div>
-        {computeSeats(state.playerOrder, players, myId, handCounts, currentTurn).map(seat => (
+        {computeSeats(playerOrder, players, myId, handCounts, currentTurn).map(seat => (
           <div
             key={seat.pid}
             className="seat"
