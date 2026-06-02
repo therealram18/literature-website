@@ -162,6 +162,11 @@ function pruneRoom(roomId) {
   }
 }
 
+/** Generate a random 4-character room ID */
+function _generateRoomId() {
+  return Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Socket.io event handlers
 // ─────────────────────────────────────────────────────────────────────────────
