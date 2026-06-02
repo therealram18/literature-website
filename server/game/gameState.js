@@ -247,13 +247,6 @@ function claimSet(state, claimerId, setName, mapping) {
       detail:  `${claimerName} claimed ${SET_DISPLAY_NAMES[setName]} — but the opponent held a card! ${opponentTeam} wins the set.`,
       setName,
     };
-    // // Turn goes to opponent team
-    // newState.currentTurn = _firstWithCards(newState, opponentTeam);
-    newState.currentTurn = _skipEmptyHands(newState, claimerId);
-    // If claimer is empty, find next on same team
-    if (!newState.currentTurn) {
-      newState.currentTurn = _firstWithCards(newState, claimerTeam);
-    }
   } else {
     // All cards are on the claimer's team — check location accuracy
     const allCorrect = setCards.every(card => {
@@ -272,12 +265,6 @@ function claimSet(state, claimerId, setName, mapping) {
         detail:  `${claimerName} claimed ${SET_DISPLAY_NAMES[setName]} — correct! ${claimerTeam} wins the set.`,
         setName,
       };
-      // Turn stays with claimer's team
-      newState.currentTurn = _skipEmptyHands(newState, claimerId);
-      // If claimer is empty, find next on same team
-      if (!newState.currentTurn) {
-        newState.currentTurn = _firstWithCards(newState, claimerTeam);
-      }
     } else {
       // DISCARD: no one scores
       outcome = 'discard';
@@ -288,19 +275,20 @@ function claimSet(state, claimerId, setName, mapping) {
         detail:  `${claimerName} claimed ${SET_DISPLAY_NAMES[setName]} — wrong locations! Set discarded. Turn passes to team ${opponentTeam}.`,
         setName,
       };
-      // // Turn goes to opponent team
-      // newState.currentTurn = _firstWithCards(newState, opponentTeam);
-      newState.currentTurn = _skipEmptyHands(newState, claimerId);
-      // If claimer is empty, find next on same team
-      if (!newState.currentTurn) {
-        newState.currentTurn = _firstWithCards(newState, claimerTeam);
-      }
     }
   }
 
   // Remove claimed set's cards from all hands
   _removeSetFromHands(newState, setCards);
   newState.resolvedSets.push(setName);
+
+  // Turn logic in case of empty hands
+  newState.currentTurn = _skipEmptyHands(newState, state.currentTurn);
+  if (!newState.currentTurn) {
+    // If the active player lost their last cards to this claim, pass to their teammate
+    const activeTeam = state.players[state.currentTurn].team;
+    newState.currentTurn = _firstWithCards(newState, activeTeam);
+  }
 
   // Check if game is over
   const totalSets = Object.keys(SETS).length;

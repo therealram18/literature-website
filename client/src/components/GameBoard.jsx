@@ -20,6 +20,7 @@ import ClaimModal  from './ClaimModal';
 import AskModal from './AskModal';
 // import GameLog     from './GameLog';
 import { SETS, CARD_TO_SET } from '../sets'; // Import the set definitions
+import characters from '../characters';
 
 export default function GameBoard({ gameState }) {
   const [selectedCard,  setSelectedCard]  = useState(null);  // card chosen to ask for
@@ -212,7 +213,10 @@ export default function GameBoard({ gameState }) {
                     
                     {/* Clean up Avatar Image */}
                     {p.avatar ? (
-                      <img src={p.avatar} alt={p.name} />
+                      <img 
+                        src={characters.find(a => a.imageId === p.avatar)?.image || p.avatar} 
+                        alt={p.name} 
+                      />
                     ) : (
                       <span>{p.name?.substring(0, 3).toUpperCase()}</span>
                     )}
