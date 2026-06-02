@@ -252,15 +252,15 @@ export default function GameBoard({ gameState }) {
             <div id="logContent">
               {lastAction ? (
                 <div className="log-item log-main">
-                  {lastAction.type === 'ask' && (
+                  {lastAction.type === 'ask_success' || lastAction.type === 'ask_fail' && (
                     <span>
                       <strong>{players[lastAction.askerId]?.name}</strong> asked{' '}
                       <strong>{players[lastAction.targetId]?.name}</strong> for{' '}
                       <strong>{lastAction.card || lastAction.cardId}</strong> —{' '}
-                      {lastAction.success ? 'got it! 🎉' : 'nope 😅'}
+                      {lastAction.type === 'ask_success' ? 'got it! 🎉' : 'nope 😅'}
                     </span>
                   )}
-                  {lastAction.type === 'claim' && (
+                  {lastAction.type === 'claim_success' || lastAction.type === 'claim_stolen' || lastAction.type === 'claim_discard' && (
                     <span>
                       <strong>{players[lastAction.claimerId]?.name}</strong> claimed{' '}
                       <strong>{lastAction.setId || lastAction.setName}</strong> —{' '}
