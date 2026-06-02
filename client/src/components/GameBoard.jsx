@@ -193,6 +193,8 @@ export default function GameBoard({ gameState }) {
               if (!p) return null;
               const isOpponent = p.team !== myTeam;
               const canAsk = isMyTurn && selectedCard && isOpponent;
+
+              console.log(seat.pid, 'avatar:', p.avatar, 'charImage:', characters.find(a => String(a.imageId) === String(p.avatar)));
               const charImage = characters.find(a => String(a.imageId) === String(p.avatar))?.image;
 
               return (
