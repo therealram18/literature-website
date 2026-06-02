@@ -51,7 +51,7 @@ export default function ClaimModal({
   }
 
   return (
-    <div id="declare" className="screen" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
+    <div id="declare" className="screen active" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
       <div className="modal-wrap">
         <div className="modal-head" style={{ background: 'var(--purple)' }}>
           <h2>Claim</h2>

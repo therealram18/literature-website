@@ -278,9 +278,11 @@ export default function GameBoard({ gameState }) {
 
         </div>
 
-        {/* ── Ask modal ──────────────────────────────────────────────────── */}
+      </div>
+      </div>
+      {/* ── Ask modal ──────────────────────────────────────────────────── */}
 
-        {showAsk && (
+      {showAsk && (
           <AskModal 
             myHand={myHand}
             validAskCards={validAskCards}
@@ -300,9 +302,6 @@ export default function GameBoard({ gameState }) {
             onClose={() => setShowClaim(false)}
           />
         )}
-
-      </div>
-      </div>
     </div>
   );
 }

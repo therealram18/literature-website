@@ -7,7 +7,7 @@ export default function AskModal({ myHand = [], validAskCards = [], onSelectCard
   }))].filter(Boolean);
 
   return (
-    <div id="ask" className="screen" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
+    <div id="ask" className="screen active" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100 }}>
       <div className="modal-wrap">
         <div className="modal-head">
           <h2>Ask for a Card 🙏</h2>
