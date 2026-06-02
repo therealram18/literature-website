@@ -37,6 +37,13 @@ function createGame(roomId, players) {
     B: players.filter(p => p.team === 'B').map(p => p.id),
   };
 
+  // Alternate team's players while sitting
+  const playerOrder = [];
+  for (let i = 0; i < teams.A.length; i++) {
+    playerOrder.push(teams.A[i]);
+    playerOrder.push(teams.B[i]);
+  }
+
   // First turn: random player
   const firstPlayer = playerIds[Math.floor(Math.random() * playerIds.length)];
 
@@ -45,6 +52,7 @@ function createGame(roomId, players) {
     phase:       'playing',       // 'lobby' | 'playing' | 'finished'
     players:     Object.fromEntries(players.map(p => [p.id, { id: p.id, name: p.name, team: p.team, avatar: p.avatar }])),
     teams,
+    playerOrder,                      // seating order (for UI)
     hands,                        // { [playerId]: string[] }  — PRIVATE
     currentTurn: firstPlayer,
     score:       { A: 0, B: 0 },
@@ -328,6 +336,7 @@ function getPublicState(state, forPlayerId) {
     phase:         state.phase,
     players:       state.players,
     teams:         state.teams,
+    playerOrder:   state.playerOrder,
     currentTurn:   state.currentTurn,
     score:         state.score,
     wonSets:       state.wonSets,
@@ -374,6 +383,7 @@ function _holderOf(cardId, hands) {
 function _cloneState(state) {
   return {
     ...state,
+    playerOrder: [...state.playerOrder],
     hands:         Object.fromEntries(
       Object.entries(state.hands).map(([pid, h]) => [pid, [...h]])
     ),
