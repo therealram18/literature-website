@@ -130,6 +130,9 @@ function askCard(state, askerId, targetId, cardId) {
     newState.lastAction = {
       type:   'ask_success',
       by:     askerId,
+      askerId: askerId,
+      targetId: targetId,
+      cardId: cardId,
       detail: `${askerName} asked ${targetName} for ${cardId} — success! Turn stays.`,
     };
 
@@ -141,6 +144,9 @@ function askCard(state, askerId, targetId, cardId) {
     newState.lastAction = {
       type:   'ask_fail',
       by:     askerId,
+      askerId: askerId,
+      targetId: targetId,
+      cardId: cardId,
       detail: `${askerName} asked ${targetName} for ${cardId} — failed. ${targetName}'s turn.`,
     };
   }
@@ -229,6 +235,7 @@ function claimSet(state, claimerId, setName, mapping) {
     newState.lastAction = {
       type:    'claim_stolen',
       by:      claimerId,
+      claimerId: claimerId,
       detail:  `${claimerName} claimed ${SET_DISPLAY_NAMES[setName]} — but the opponent held a card! ${opponentTeam} wins the set.`,
       setName,
     };

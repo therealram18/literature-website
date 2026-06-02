@@ -252,7 +252,7 @@ export default function GameBoard({ gameState }) {
             <div id="logContent">
               {lastAction ? (
                 <div className="log-item log-main">
-                  {lastAction.type === 'ask_success' || lastAction.type === 'ask_fail' && (
+                  {(lastAction.type === 'ask_success' || lastAction.type === 'ask_fail') && (
                     <span>
                       <strong>{players[lastAction.askerId]?.name}</strong> asked{' '}
                       <strong>{players[lastAction.targetId]?.name}</strong> for{' '}
@@ -260,7 +260,7 @@ export default function GameBoard({ gameState }) {
                       {lastAction.type === 'ask_success' ? 'got it! 🎉' : 'nope 😅'}
                     </span>
                   )}
-                  {lastAction.type === 'claim_success' || lastAction.type === 'claim_stolen' || lastAction.type === 'claim_discard' && (
+                  {(lastAction.type === 'claim_success' || lastAction.type === 'claim_stolen' || lastAction.type === 'claim_discard') && (
                     <span>
                       <strong>{players[lastAction.claimerId]?.name}</strong> claimed{' '}
                       <strong>{lastAction.setId || lastAction.setName}</strong> —{' '}
