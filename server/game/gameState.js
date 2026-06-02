@@ -23,7 +23,7 @@ const { dealToPlayers } = require('./deck');
  * Creates a fresh game state.
  *
  * @param {string}   roomId
- * @param {{ id: string, name: string, team: 'A'|'B' }[]} players
+ * @param {{ id: string, name: string, team: 'A'|'B', avatar: any }[]} players
 \ * @returns {GameState}
  */
 function createGame(roomId, players) {
@@ -272,7 +272,7 @@ function claimSet(state, claimerId, setName, mapping) {
       newState.lastAction = {
         type:    'claim_discard',
         claimerId:      claimerId,
-        detail:  `${claimerName} claimed ${SET_DISPLAY_NAMES[setName]} — wrong locations! Set discarded. Turn passes to team ${opponentTeam}.`,
+        detail:  `${claimerName} claimed ${SET_DISPLAY_NAMES[setName]} — wrong locations! Set discarded.`,
         setName,
       };
     }
@@ -282,12 +282,22 @@ function claimSet(state, claimerId, setName, mapping) {
   _removeSetFromHands(newState, setCards);
   newState.resolvedSets.push(setName);
 
-  // Turn logic in case of empty hands
-  newState.currentTurn = _skipEmptyHands(newState, state.currentTurn);
-  if (!newState.currentTurn) {
-    // If the active player lost their last cards to this claim, pass to their teammate
-    const activeTeam = state.players[state.currentTurn].team;
-    newState.currentTurn = _firstWithCards(newState, activeTeam);
+  // Claims don't change the turn. Only exception: if the active player's
+  // hand was emptied by this claim, advance to the next player in seat order.
+  if (newState.hands[state.currentTurn]?.length > 0) {
+    newState.currentTurn = state.currentTurn;
+  } else {
+    const order = newState.playerOrder;
+    const startIdx = order.indexOf(state.currentTurn);
+    let next = null;
+    for (let i = 1; i < order.length; i++) {
+      const pid = order[(startIdx + i) % order.length];
+      if (newState.hands[pid]?.length > 0) {
+        next = pid;
+        break;
+      }
+    }
+    newState.currentTurn = next;
   }
 
   // Check if game is over
