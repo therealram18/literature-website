@@ -195,7 +195,6 @@ export default function GameBoard({ gameState }) {
               const canAsk = isMyTurn && selectedCard && isOpponent;
 
               console.log(seat.pid, 'avatar:', p.avatar, 'charImage:', characters.find(a => String(a.imageId) === String(p.avatar)));
-              const charImage = characters.find(a => String(a.imageId) === String(p.avatar))?.image;
 
               return (
                 <div
@@ -215,8 +214,8 @@ export default function GameBoard({ gameState }) {
                     {seat.pid === currentTurn && <div className="seat-badge">★</div>}
                     
                     {/* Clean up Avatar Image */}
-                    {charImage ? (
-                      <img src={charImage} alt={p.name}/>
+                    {p.avatar ? (
+                      <img src={p.avatar.image} alt={p.name}/>
                     ) : (
                       <span>{p.name?.substring(0, 3).toUpperCase()}</span>
                     )}
