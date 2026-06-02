@@ -117,121 +117,113 @@ export default function GameBoard({ gameState }) {
 
   // ─────────────────────────────────────────────────────────────────────────
 
+  console.log("Seats rendering: ", computeSeats(playerOrder, players, myId, handCounts, currentTurn));
+
   return (
-    <div className="table-wrap" style={{ maxWidth: '1100px', margin: '2rem auto', padding: '0 20px' }}>
+    <div className="table-wrap">
       <div className="table-layout">
 
-      {/* ── Scoreboard ─────────────────────────────────────────────────── */}
-      <div className="table-header">
-        <div className="turn-banner">
-          <span>★</span>
-          {isMyTurn ? <strong>Your turn</strong> : <span>{players[currentTurn]?.name ?? '…'}'s turn</span>}
-        </div>
-      </div>
-
-      {/* ── Game log ───────────────────────────────────────────────────── */}
-      {/* <GameLog lastAction={lastAction} /> */}
-
-      {/* ── Players panel ──────────────────────────────────────────────── */}
-      <div className="felt-zone" style={{ position: 'relative' }}>
-        <div className="felt-inner" />
-        <div className="felt-logo">LITERATURE</div>
-        
-        {computeSeats(playerOrder, players, myId, handCounts, currentTurn).map(seat => {
-
-          const p = players[seat.pid];
-          if (!p) return null;
-          const isOpponent = p.team !== myTeam;
-          const canAsk = isMyTurn && selectedCard && isOpponent;
-
-          return (
-            <div
-              key={seat.pid}
-              className="seat"
-              style={{ 
-                position: 'absolute', 
-                transform: 'translate(-50%, -50%)', 
-                left: `${seat.cx}%`, 
-                top: `${seat.cy}%`,
-                zIndex: 10 /* Ensures avatars stay on top of the green board */
-              }}
-            >
-              <div
-                className={[
-                  'seat-bubble',
-                  seat.pid === myId ? 'you' : `team-${p.team?.toLowerCase()}`,
-                  seat.pid === currentTurn ? 'active' : '',
-                ].join(' ').trim()}
-                onClick={() => canAsk && handleSelectTarget(seat.pid)}
-                style={{ cursor: canAsk ? 'pointer' : 'default' }}
-              >
-                {seat.pid === currentTurn && <div className="seat-badge">★</div>}
-                
-                {/* Render Avatar if exists, otherwise text */}
-                {p.avatar ? (
-                  <img 
-                    src={p.avatar} 
-                    alt={p.name} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
-                  />
-                ) : (
-                  p.name?.substring(0, 3).toUpperCase()
-                )}
-              </div>
-              <div className="seat-label">{p.name}</div>
-              <div className="card-count-chip">{handCounts[seat.pid] ?? 0} cards</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Ask action bar ─────────────────────────────────────────────── */}
-      {isMyTurn && (
-        <div className="action-confirm-bar" style={{ background: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-          
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <label style={{ fontWeight: 'bold' }}>Ask for: </label>
-            <select
-              value={selectedCard || ''}
-              onChange={(e) => {
-                setSelectedCard(e.target.value || null);
-                setSelectedTarget(null); // reset target on card change
-              }}
-              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-            >
-              <option value="">-- Choose a card --</option>
-              {validAskCards.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+        {/* ── Scoreboard ─────────────────────────────────────────────────── */}
+        <div className="table-header">
+          <div className="turn-banner">
+            <span>★</span>
+            {isMyTurn ? <strong>Your turn</strong> : <span>{players[currentTurn]?.name ?? '…'}'s turn</span>}
           </div>
-
-          {!selectedCard && <p style={{ margin: 0, color: '#666' }}>Select a card you want to ask for.</p>}
-          {selectedCard && !selectedTarget && <p style={{ margin: 0, color: '#d97706', fontWeight: 'bold' }}>Now click on an opponent to ask them.</p>}
-          
-          {selectedCard && selectedTarget && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '10px' }}>
-              <p style={{ margin: 0 }}>Ask <strong>{players[selectedTarget]?.name}</strong> for <strong>{selectedCard}</strong>?</p>
-              <button className="big-btn btn-orange" onClick={handleAsk}>Ask!</button>
-              <button className="big-btn btn-outline" onClick={() => { setSelectedCard(null); setSelectedTarget(null); }}>Cancel</button>
-            </div>
-          )}
         </div>
-      )}
-      
 
-      {/* ── Your hand ──────────────────────────────────────────────────── */}
-      <div className="board__hand-area">
-        <h3 className="board__hand-title">
-          Your hand ({myHand.length} cards)
-        </h3>
-        <Hand
-          hand={myHand}
-          resolvedSets={resolvedSets}
-          selectedCard={null}
-          onSelectCard={undefined}
-        />
-      </div>
+        {/* ── Players panel ──────────────────────────────────────────────── */}
+        <div className="felt-zone">
+          <div className="felt-inner" />
+          <div className="felt-logo">LITERATURE</div>
+          
+          {computeSeats(playerOrder, players, myId, handCounts, currentTurn).map(seat => {
+            const p = players[seat.pid];
+            if (!p) return null;
+            const isOpponent = p.team !== myTeam;
+            const canAsk = isMyTurn && selectedCard && isOpponent;
+
+            return (
+              <div
+                key={seat.pid}
+                className="seat"
+                style={{ left: `${seat.cx}%`, top: `${seat.cy}%` }} /* Stripped absolute/transform to trust CSS */
+              >
+                <div
+                  className={[
+                    'seat-bubble',
+                    seat.pid === myId ? 'you' : `team-${p.team?.toLowerCase()}`,
+                    seat.pid === currentTurn ? 'active' : '',
+                  ].join(' ').trim()}
+                  onClick={() => canAsk && handleSelectTarget(seat.pid)}
+                  style={{ cursor: canAsk ? 'pointer' : 'default' }}
+                >
+                  {seat.pid === currentTurn && <div className="seat-badge">★</div>}
+                  
+                  {/* Clean up Avatar Image */}
+                  {p.avatar ? (
+                    <img src={p.avatar} alt={p.name} />
+                  ) : (
+                    <span>{p.name?.substring(0, 3).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="seat-label">{p.name}</div>
+                <div className="card-count-chip">{handCounts[seat.pid] ?? 0} cards</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Ask action bar ─────────────────────────────────────────────── */}
+        {isMyTurn && (
+          <div className="hand-section">
+            <div className="section-title">
+              <span>🎯</span> Your Turn Action
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ fontWeight: '600', fontSize: '13px' }}>Ask for: </label>
+              <select
+                className="fun-input"
+                value={selectedCard || ''}
+                onChange={(e) => {
+                  setSelectedCard(e.target.value || null);
+                  setSelectedTarget(null); // reset target on card change
+                }}
+                style={{ width: 'auto', padding: '8px 12px' }}
+              >
+                <option value="">-- Choose a card --</option>
+                {validAskCards.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+
+              {!selectedCard && <span className="tag">Select a card from a set you own</span>}
+              {selectedCard && !selectedTarget && <span className="tag" style={{background: 'var(--yellow)'}}>Now click an opponent avatar!</span>}
+              
+              {selectedCard && selectedTarget && (
+                <>
+                  <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                    Ask {players[selectedTarget]?.name}?
+                  </span>
+                  <button className="big-btn btn-orange" style={{width:'auto', padding:'8px 16px'}} onClick={handleAsk}>Ask!</button>
+                  <button className="big-btn btn-outline" style={{width:'auto', padding:'8px 16px'}} onClick={() => { setSelectedCard(null); setSelectedTarget(null); }}>Cancel</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Your hand ──────────────────────────────────────────────────── */}
+        <div className="hand-section">
+          <div className="section-title">
+            Your hand ({myHand.length} cards)
+          </div>
+          <Hand
+            hand={myHand}
+            resolvedSets={resolvedSets}
+            selectedCard={selectedCard} /* Re-enabled so you see what is selected */
+            onSelectCard={handleSelectCard}
+          />
+        </div>
 
       {/* ── Add sidebar ────────────────────────────────────────────────── */}
 
