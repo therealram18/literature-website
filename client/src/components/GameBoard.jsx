@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react';
 import socket from '../socket';
 import Hand        from './Hand';
 import ClaimModal  from './ClaimModal';
+import AskModal from './AskModal';
 // import GameLog     from './GameLog';
 import { SETS, CARD_TO_SET } from '../sets'; // Import the set definitions
 
@@ -24,6 +25,7 @@ export default function GameBoard({ gameState }) {
   const [selectedCard,  setSelectedCard]  = useState(null);  // card chosen to ask for
   const [selectedTarget, setSelectedTarget] = useState(null); // opponent chosen to ask
   const [showClaim, setShowClaim]         = useState(false);
+  const [showAsk, setShowAsk]             = useState(false);
 
   // Clear ask selections whenever the game state updates
   useEffect(() => {
@@ -75,11 +77,13 @@ export default function GameBoard({ gameState }) {
   function handleSelectCard(cardId) {
     setSelectedCard(cardId);
     setSelectedTarget(null); // reset target when card changes
+    setShowAsk(false);
   }
 
   function handleSelectTarget(playerId) {
     if (!isMyTurn || !selectedCard) return;
-    setSelectedTarget(playerId);
+    socket.emit('ask_card', { targetId: playerId, cardId: selectedCard });
+    setSelectedCard(null);
   }
 
   function handleAsk() {
@@ -132,6 +136,13 @@ export default function GameBoard({ gameState }) {
               <span>★</span>
               {isMyTurn ? <strong>Your turn</strong> : <span>{players[currentTurn]?.name ?? '…'}'s turn</span>}
             </div>
+
+            {selectedCard && (
+              <div style={{ background: 'var(--yellow)', padding: '8px 16px', borderRadius: '8px', border: '2px solid var(--orange)', display: 'flex', alignItems: 'center', gap: '15px', marginTop: '10px' }}>
+                <span>Asking for <strong>{selectedCard}</strong>. Click an opponent to ask!</span>
+                <button className="big-btn btn-outline" style={{ minHeight: '0', padding: '4px 12px', fontSize: '13px' }} onClick={() => setSelectedCard(null)}>Cancel</button>
+              </div>
+            )}
           </div>
 
           {/* ── Players panel ──────────────────────────────────────────────── */}
@@ -176,45 +187,6 @@ export default function GameBoard({ gameState }) {
             })}
           </div>
 
-          {/* ── Ask action bar ─────────────────────────────────────────────── */}
-          {isMyTurn && (
-            <div className="hand-section">
-              <div className="section-title">
-                <span>🎯</span> Your Turn Action
-              </div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <span className="tag">Ask for:</span>
-                <select
-                  className="fun-input"
-                  value={selectedCard || ''}
-                  onChange={(e) => {
-                    setSelectedCard(e.target.value || null);
-                    setSelectedTarget(null); // reset target on card change
-                  }}
-                  style={{ width: 'auto', padding: '6px 12px' }}
-                >
-                  <option value="">-- Choose a card --</option>
-                  {validAskCards.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-
-                {!selectedCard && <span className="tag" style={{ background: '#f0f0f0' }}>Select a card you own the set for</span>}
-                {selectedCard && !selectedTarget && <span className="sticker">Now click an opponent avatar!</span>}
-                
-                {selectedCard && selectedTarget && (
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>
-                      Ask {players[selectedTarget]?.name}?
-                    </span>
-                    <button className="big-btn btn-orange" style={{ padding: '6px 16px', fontSize: '13px' }} onClick={handleAsk}>Ask!</button>
-                    <button className="big-btn btn-outline" style={{ padding: '6px 16px', fontSize: '13px' }} onClick={() => { setSelectedCard(null); setSelectedTarget(null); }}>Cancel</button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* ── Your hand ──────────────────────────────────────────────────── */}
           <div className="hand-section">
             <div className="section-title">
@@ -257,10 +229,20 @@ export default function GameBoard({ gameState }) {
             )}
           </div>
 
-          {/* Claim button */}
+          {/* Action row */}
           <div className="action-row">
-            <button className="big-btn btn-pink" onClick={() => setShowClaim(true)}>
-              Claim a Set
+            <button 
+              className="big-btn btn-orange" 
+              disabled={!isMyTurn}
+              onClick={() => setShowAsk(true)}
+            >
+              Ask for a Card!
+            </button>
+            <button 
+              className="big-btn btn-purple" 
+              onClick={() => setShowClaim(true)}
+            >
+              Claim
             </button>
           </div>
 
@@ -295,6 +277,17 @@ export default function GameBoard({ gameState }) {
           </div>
 
         </div>
+
+        {/* ── Ask modal ──────────────────────────────────────────────────── */}
+
+        {showAsk && (
+          <AskModal 
+            myHand={myHand}
+            validAskCards={validAskCards}
+            onSelectCard={handleSelectCard}
+            onClose={() => setShowAsk(false)}
+          />
+        )}
 
         {/* ── Claim modal ────────────────────────────────────────────────── */}
         {showClaim && (

@@ -3,6 +3,7 @@ import socket from './socket';
 import AvatarPicker from './components/AvatarPicker';
 import Lobby        from './components/Lobby';
 import GameBoard    from './components/GameBoard';
+import GameOver from './components/GameOver';
 
 export default function App() {
   const [phase, setPhase]         = useState('avatar');  // 'avatar'|'lobby'|'playing'|'finished'
