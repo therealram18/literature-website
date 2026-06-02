@@ -256,16 +256,16 @@ export default function GameBoard({ gameState }) {
                     <span>
                       <strong>{players[lastAction.askerId]?.name}</strong> asked{' '}
                       <strong>{players[lastAction.targetId]?.name}</strong> for{' '}
-                      <strong>{lastAction.card}</strong> —{' '}
+                      <strong>{lastAction.card || lastAction.cardId}</strong> —{' '}
                       {lastAction.success ? 'got it! 🎉' : 'nope 😅'}
                     </span>
                   )}
                   {lastAction.type === 'claim' && (
                     <span>
                       <strong>{players[lastAction.claimerId]?.name}</strong> claimed{' '}
-                      <strong>{lastAction.setId}</strong> —{' '}
-                      {lastAction.result === 'claimed' ? '✅ correct!' :
-                      lastAction.result === 'discarded' ? '❌ discarded' :
+                      <strong>{lastAction.setId || lastAction.setName}</strong> —{' '}
+                      {lastAction.type === 'claim_success' ? '✅ correct!' :
+                      lastAction.type === 'claim_discard' ? '❌ discarded' :
                       '⚡ opponent wins!'}
                     </span>
                   )}
