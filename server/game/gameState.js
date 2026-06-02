@@ -289,15 +289,24 @@ function claimSet(state, claimerId, setName, mapping) {
   } else {
     const order = newState.playerOrder;
     const startIdx = order.indexOf(state.currentTurn);
-    let next = null;
-    for (let i = 1; i < order.length; i++) {
-      const pid = order[(startIdx + i) % order.length];
-      if (newState.hands[pid]?.length > 0) {
-        next = pid;
-        break;
-      }
+    const activeTeam = state.players[state.currentTurn].team;
+  
+    // First try to find a teammate with cards
+    let next = order.find(pid =>
+      state.players[pid].team === activeTeam &&
+      pid !== state.currentTurn &&
+      newState.hands[pid]?.length > 0
+    );
+  
+    // If the whole team is empty, fall back to any opponent with cards
+    if (!next) {
+      next = order.find(pid =>
+        state.players[pid].team !== activeTeam &&
+        newState.hands[pid]?.length > 0
+      );
     }
-    newState.currentTurn = next;
+  
+    newState.currentTurn = next ?? null;
   }
 
   // Check if game is over
