@@ -22,7 +22,7 @@ import AskModal from './AskModal';
 import { SETS, CARD_TO_SET } from '../sets'; // Import the set definitions
 import characters from '../characters';
 
-export default function GameBoard({ gameState }) {
+export default function GameBoard({ gameState, onLeave }) {
   const [selectedCard,  setSelectedCard]  = useState(null);  // card chosen to ask for
   const [selectedTarget, setSelectedTarget] = useState(null); // opponent chosen to ask
   const [showClaim, setShowClaim]         = useState(false);
@@ -193,6 +193,7 @@ export default function GameBoard({ gameState }) {
               if (!p) return null;
               const isOpponent = p.team !== myTeam;
               const canAsk = isMyTurn && selectedCard && isOpponent;
+              const charImage = characters.find(a => String(a.imageId) === String(p.avatar))?.image || null;
 
               console.log(seat.pid, 'avatar:', p.avatar, 'charImage:', characters.find(a => String(a.imageId) === String(p.avatar)));
 
@@ -214,8 +215,8 @@ export default function GameBoard({ gameState }) {
                     {seat.pid === currentTurn && <div className="seat-badge">★</div>}
                     
                     {/* Clean up Avatar Image */}
-                    {p.avatar ? (
-                      <img src={p.avatar.image} alt={p.name}/>
+                    {charImage ? (
+                      <img src={charImage} alt={p.name}/>
                     ) : (
                       <span>{p.name?.substring(0, 3).toUpperCase()}</span>
                     )}
@@ -284,6 +285,12 @@ export default function GameBoard({ gameState }) {
             >
               Claim
             </button>
+            <button 
+            className="big-btn btn-outline" 
+            onClick={onLeave}
+            >
+              Leave
+            </button>
           </div>
 
           {/* Activity log */}
@@ -300,15 +307,17 @@ export default function GameBoard({ gameState }) {
                       {lastAction.type === 'ask_success' ? 'got it! 🎉' : 'nope 😅'}
                     </span>
                   )}
-                  {(lastAction.type === 'claim_success' || lastAction.type === 'claim_stolen' || lastAction.type === 'claim_discard') && (
-                    <span>
-                      <strong>{players[lastAction.claimerId]?.name}</strong> claimed{' '}
-                      <strong>{lastAction.setId || lastAction.setName}</strong> —{' '}
-                      {lastAction.type === 'claim_success' ? '✅ correct!' :
-                      lastAction.type === 'claim_discard' ? '❌ discarded' :
-                      '⚡ opponent wins!'}
-                    </span>
-                  )}
+                  <div className="log-item log-sub">
+                    {(lastAction.type === 'claim_success' || lastAction.type === 'claim_stolen' || lastAction.type === 'claim_discard') && (
+                      <span>
+                        <strong>{players[lastAction.claimerId]?.name}</strong> claimed{' '}
+                        <strong>{lastAction.setId || lastAction.setName}</strong> —{' '}
+                        {lastAction.type === 'claim_success' ? '✅ correct!' :
+                        lastAction.type === 'claim_discard' ? '❌ discarded' :
+                        '⚡ opponent wins!'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="log-item" style={{ color: '#aaa' }}>No moves yet</div>

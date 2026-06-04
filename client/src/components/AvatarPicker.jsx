@@ -7,6 +7,7 @@
  */
 
 import { useState } from 'react';
+import socket from '../socket';
 import characters from '../characters';
 
 export default function AvatarPicker({ onComplete }) {
@@ -14,6 +15,7 @@ export default function AvatarPicker({ onComplete }) {
   const [roomInput, setRoomInput] = useState('');
   const [joinMode, setJoinMode]   = useState(null);   // 'create' | 'join'
   const [selected, setSelected]   = useState(null);   // character object
+  const [loading, setLoading]     = useState(false);
 
   // ── Step 1: home screen — name + create/join ────────────────────────────
   if (!joinMode) {
@@ -74,12 +76,22 @@ export default function AvatarPicker({ onComplete }) {
   // ── Step 2: character select ─────────────────────────────────────────────
   function handleLockIn() {
     if (!selected) return;
-    onComplete({
-      name:     name.trim(),
-      roomId:   joinMode === 'join' ? roomInput.trim() : null,
-      isCreate: joinMode === 'create',
-      avatar:   selected,
-    });
+    const avatar = selected.imageId;
+
+    if (joinMode==='create') {
+      setLoading(true);
+      socket.connect();
+      socket.once('connect', () => {
+        socket.emit('create_room', {name: name.trim(), avatar});
+      });
+      socket.once('room_created', ({ roomId }) => {
+        setLoading(false);
+        onComplete({ name: name.trim(), avatar, roomId });
+      });
+    } else {
+      socket.connect();
+      onComplete({ name: name.trim(), avatar, roomId: roomInput.trim() });
+    }
   }
 
   return (

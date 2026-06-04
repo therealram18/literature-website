@@ -86,6 +86,7 @@ function roomSnapshot(room) {
       id:   p.id,
       name: p.name,
       team: p.team,
+      avatar: p.avatar,
     })),
   };
 }
@@ -177,6 +178,7 @@ io.on('connection', socket => {
   // ── create_room ─────────────────────────────────────────────────────────
 
   socket.on('create_room', ({ name, avatar } = {}) => {
+    console.log(`[create_room] socket=${socket.id} name=${name}`);
     const roomId = _generateRoomId(); // add this helper from rooms.js to index.js
     socket.emit('room_created', { roomId }); // optional, so client knows the ID
     // then treat it exactly like join_room
@@ -189,6 +191,7 @@ io.on('connection', socket => {
   // ── join_room ──────────────────────────────────────────────────────────────
   // payload: { roomId: string, name: string }
   socket.on('join_room', ({ roomId, name, avatar } = {}) => {
+    console.log(`[join_room] socket=${socket.id} name=${name} roomId=${roomId}`);
     if (!roomId || typeof roomId !== 'string' || roomId.trim() === '') {
       return socket.emit('action_error', 'Invalid room ID.');
     }
@@ -233,6 +236,9 @@ io.on('connection', socket => {
       delete gs.players[oldId];
       // Fix currentTurn if it was their turn
       if (gs.currentTurn === oldId) gs.currentTurn = socket.id;
+      // Update playerOrder with new id
+      const orderIdx = gs.playerOrder.indexOf(oldId);
+      if (orderIdx !== -1) gs.playerOrder[orderIdx] = socket.id;
     }
 
     socket.join(roomId);
@@ -241,7 +247,7 @@ io.on('connection', socket => {
     broadcastHands(room);
     io.to(roomId).emit('player_rejoined', { playerName: name.trim() });
     return;
-  }
+    }
 
     // Leave any previous room (handles reconnects / room switching)
     const prevRooms = [...socket.rooms].filter(r => r !== socket.id);

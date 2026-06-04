@@ -1,16 +1,30 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import socket from './socket';
 import AvatarPicker from './components/AvatarPicker';
 import Lobby        from './components/Lobby';
 import GameBoard    from './components/GameBoard';
 import GameOver from './components/GameOver';
 
-export default function App() {
-  const [phase, setPhase]         = useState('avatar');  // 'avatar'|'lobby'|'playing'|'finished'
-  const [gameState, setGameState] = useState(null);
-  const [error, setError]         = useState(null);
-  const [playerInfo, setPlayerInfo] = useState(null);    // { name, avatar, roomId, isCreate }
+// ── /room/:roomId ─────────────────────────────────────────────────────────────
+function RoomPage() {
+  const { roomId }                  = useParams(); // read the :roomId from the URL
+  const navigate                    = useNavigate();
+  const [phase, setPhase]           = useState('lobby');  // 'avatar'|'lobby'|'playing'|'finished'
+  const [gameState, setGameState]   = useState(null);
+  const [error, setError]           = useState(null);
 
+  useEffect(() => {
+    const raw = localStorage.getItem('lit_session');
+    if (!raw) return;
+    const { name, avatar } = JSON.parse(raw);
+    if (name) {
+      // Navigate to /room/:roomId and auto-emit join_room
+      socket.emit('join_room', { roomId, name, avatar });
+    }
+  }, [roomId]);
+
+  // Socket listeners scoped to the room
   useEffect(() => {
     socket.on('game_started', (state) => {
       setGameState(state);
@@ -23,6 +37,7 @@ export default function App() {
     });
 
     socket.on('game_over', ({ winner, score }) => {
+      localStorage.removeItem('lit_session');   // ← clear on game over
       setPhase('finished');
       setGameState(prev => ({ ...prev, winner, score }));
     });
@@ -40,10 +55,9 @@ export default function App() {
     };
   }, []);
 
-  function handleAvatarComplete(info) {
-    // info: { name, avatar, roomId, isCreate }
-    setPlayerInfo(info);
-    setPhase('lobby');
+  function handleLeave() {
+    localStorage.removeItem('lit_session');     // ← clear on intentional leave
+    navigate('/');
   }
 
   return (
@@ -52,18 +66,14 @@ export default function App() {
         <div className="error-toast" role="alert">{error}</div>
       )}
 
-      {phase === 'avatar' && (
-        <AvatarPicker onComplete={handleAvatarComplete} />
-      )}
-
       {phase === 'lobby' && (
         <Lobby
-          playerInfo={playerInfo}
+          roomId={roomId} onLeave={handleLeave}
         />
       )}
 
       {phase === 'playing' && (
-        <GameBoard gameState={gameState} />
+        <GameBoard gameState={gameState} onLeave={handleLeave} />
       )}
 
       {phase === 'finished' && (
@@ -92,12 +102,7 @@ export default function App() {
               </div>
               <button
                 className="big-btn btn-orange"
-                onClick={() => {
-                  socket.disconnect();
-                  setPhase('avatar');
-                  setGameState(null);
-                  setPlayerInfo(null);
-                }}
+                onClick={() => {handleLeave}}
               >
                 Play Again 🔄
               </button>
@@ -106,5 +111,29 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+// ── / (home) ──────────────────────────────────────────────────────────────────
+function HomePage() {
+  const navigate = useNavigate();
+
+  function handleAvatarComplete({ name, avatar, roomId }) {
+    localStorage.setItem('lit_session', JSON.stringify({ name, avatar }));
+    navigate(`/room/${roomId}`);
+    // RoomPage mounts, reads roomId from URL, name/avatar from localStorage,
+    // and the Lobby component handles the actual join_room emit
+  }
+
+  return <AvatarPicker onComplete={handleAvatarComplete} />;
+}
+
+// ── Router root ───────────────────────────────────────────────────────────────
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/"               element={<HomePage />}/>
+      <Route path="/room/:roomId"   element={<RoomPage />}/>
+    </Routes>
   );
 }

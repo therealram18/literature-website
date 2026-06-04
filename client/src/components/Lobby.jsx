@@ -3,15 +3,14 @@
  * Matches the #lobby screen from the HTML design.
  *
  * Props:
- *   playerInfo: { name, avatar, roomId, isCreate }
- *     — passed from AvatarPicker via App.jsx
- *     — isCreate: true = create new room, false = join existing roomId
+ *   roomId (string): the room code to join
+ *   onLeave (function): callback to trigger when user intentionally leaves the lobby
  */
 
 import { useState, useEffect } from 'react';
 import socket from '../socket';
 
-export default function Lobby({ playerInfo }) {
+export default function Lobby({ roomId, onLeave }) {
   const [room, setRoom]   = useState(null);
   const [copied, setCopied] = useState(false);
 
@@ -20,22 +19,13 @@ export default function Lobby({ playerInfo }) {
     socket.connect();
 
     socket.once('connect', () => {
-      if (playerInfo.isCreate) {
-        // Ask the server to create a room — server will emit room_update with the new ID
-        socket.emit('create_room', {
-          name:   playerInfo.name,
-          avatar: playerInfo.avatar,
-        });
-      } else {
-        socket.emit('join_room', {
-          roomId: playerInfo.roomId,
-          name:   playerInfo.name,
-          avatar: playerInfo.avatar,
-        });
-      }
+      const { name, avatar } = JSON.parse(localStorage.getItem('lit_session') || '{}');
+      if (!name) return;
+      socket.emit('join_room', { roomId, name, avatar });
     });
 
     socket.on('room_update', (snapshot) => {
+      
       setRoom(snapshot);
     });
 
@@ -47,7 +37,7 @@ export default function Lobby({ playerInfo }) {
       socket.off('room_update');
       socket.off('player_left');
     };
-  }, []);
+  }, [roomId]);
 
   function handleTeam(team) {
     socket.emit('set_team', { team });

@@ -199,6 +199,7 @@ function getLobbySnapshot(room) {
       id:    p.id,
       name:  p.name,
       team:  p.team,
+      avatar: p.avatar,
     })),
   };
 }
