@@ -15,14 +15,11 @@ function RoomPage() {
   const [error, setError]           = useState(null);
 
   useEffect(() => {
-    const raw = localStorage.getItem('lit_session');
-    if (!raw) return;
-    const { name, avatar } = JSON.parse(raw);
-    if (name) {
-      // Navigate to /room/:roomId and auto-emit join_room
-      socket.emit('join_room', { roomId, name, avatar });
-    }
-  }, [roomId]);
+    // Only attempt reconnect if we were mid-game
+    if (phase === 'lobby') return;
+    const { name, avatar } = JSON.parse(localStorage.getItem('lit_session') || '{}');
+    if (name) socket.emit('join_room', { roomId, name, avatar });
+  }, [roomId, phase]);
 
   // Socket listeners scoped to the room
   useEffect(() => {
