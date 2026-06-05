@@ -10,22 +10,21 @@
 import { useState, useEffect } from 'react';
 import socket from '../socket';
 
-export default function Lobby({ roomId, onLeave }) {
-  const [room, setRoom]   = useState(null);
+export default function Lobby({ roomId, initialRoom, onLeave }) {
+  const [room, setRoom]   = useState(initialRoom);
   const [copied, setCopied] = useState(false);
 
   // Auto-connect as soon as Lobby mounts
   useEffect(() => {
-    socket.connect();
+    // socket.connect();
 
-    socket.once('connect', () => {
-      const { name, avatar } = JSON.parse(localStorage.getItem('lit_session') || '{}');
-      if (!name) return;
-      socket.emit('join_room', { roomId, name, avatar });
-    });
+    // socket.once('connect', () => {
+    //   const { name, avatar } = JSON.parse(localStorage.getItem('lit_session') || '{}');
+    //   if (!name) return;
+    //   socket.emit('join_room', { roomId, name, avatar });
+    // });
 
     socket.on('room_update', (snapshot) => {
-      
       setRoom(snapshot);
     });
 

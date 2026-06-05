@@ -203,50 +203,60 @@ io.on('connection', socket => {
     const room = getOrCreateRoom(roomId.trim(), socket.id);
 
     if (room.phase !== 'lobby') {
-      // Check if this is a reconnect — same name as a disconnected player
-      const disconnectedSlot = Object.values(room.players)
-      .find(p => p.disconnected && p.name === name.trim());
+      // Check if this is a reconnect — same name as an existing player
+      const existingSlot = Object.values(room.players)
+      .find(p => p.name === name.trim());
 
-      if (!disconnectedSlot) {
+      if (!existingSlot) {
         return socket.emit('action_error', 'Game already in progress — cannot join.');
-    }
-
-    // Reconnect: transfer the old slot to the new socket ID
-    const oldId = disconnectedSlot.id;
-    room.players[socket.id] = {
-      ...disconnectedSlot,
-      id:           socket.id,
-      disconnected: false,
-    };
-    delete room.players[oldId];
-
-    // Update gameState to point to new socket ID
-    if (room.gameState) {
-      const gs = room.gameState;
-      // Transfer hand
-      gs.hands[socket.id] = gs.hands[oldId];
-      delete gs.hands[oldId];
-      // Transfer team slot
-      for (const team of ['A', 'B']) {
-        const idx = gs.teams[team].indexOf(oldId);
-        if (idx !== -1) gs.teams[team][idx] = socket.id;
       }
-      // Transfer player entry
-      gs.players[socket.id] = { ...gs.players[oldId], id: socket.id };
-      delete gs.players[oldId];
-      // Fix currentTurn if it was their turn
-      if (gs.currentTurn === oldId) gs.currentTurn = socket.id;
-      // Update playerOrder with new id
-      const orderIdx = gs.playerOrder.indexOf(oldId);
-      if (orderIdx !== -1) gs.playerOrder[orderIdx] = socket.id;
+
+      // Reconnect: transfer the old slot to the new socket ID
+      const oldId = existingSlot.id;
+      // Disconnect if old slot is still connected
+      const oldSock = io.sockets.sockets.get(oldId);
+      if (oldSock) oldSock.disconnect(true);
+
+      // Transfer to new socket ID
+      room.players[socket.id] = {
+        ...existingSlot,
+        id:           socket.id,
+        disconnected: false,
+      };
+      delete room.players[oldId];
+
+      // Update gameState to point to new socket ID
+      if (room.gameState) {
+        const gs = room.gameState;
+        // Transfer hand
+        gs.hands[socket.id] = gs.hands[oldId];
+        delete gs.hands[oldId];
+        // Transfer team slot
+        for (const team of ['A', 'B']) {
+          const idx = gs.teams[team].indexOf(oldId);
+          if (idx !== -1) gs.teams[team][idx] = socket.id;
+        }
+        // Update playerOrder with new id
+        const orderIdx = gs.playerOrder.indexOf(oldId);
+        if (orderIdx !== -1) gs.playerOrder[orderIdx] = socket.id;
+        // Transfer player entry
+        gs.players[socket.id] = { ...gs.players[oldId], id: socket.id };
+        delete gs.players[oldId];
+        // Fix currentTurn if it was their turn
+        if (gs.currentTurn === oldId) gs.currentTurn = socket.id;
+      }
+
+      socket.join(roomId);
+      socket.emit('game_started', getPublicState(room.gameState, socket.id));
+      broadcastHands(room);
+      broadcastGameState(room);
+      io.to(roomId).emit('player_rejoined', { playerName: name.trim() });
+      return;
     }
 
-    socket.join(roomId);
-    const sock = io.sockets.sockets.get(socket.id);
-    if (sock) sock.emit('game_started', getPublicState(room.gameState, socket.id));
-    broadcastHands(room);
-    io.to(roomId).emit('player_rejoined', { playerName: name.trim() });
-    return;
+    if (room.players[socket.id]) {
+      socket.emit('room_update', roomSnapshot(room));
+      return;
     }
 
     // Leave any previous room (handles reconnects / room switching)

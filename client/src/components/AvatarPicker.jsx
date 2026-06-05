@@ -89,8 +89,14 @@ export default function AvatarPicker({ onComplete }) {
         onComplete({ name: name.trim(), avatar, roomId });
       });
     } else {
-      socket.connect();
-      onComplete({ name: name.trim(), avatar, roomId: roomInput.trim() });
+      if (socket.connected) {
+        onComplete({ name: name.trim(), avatar, roomId: roomInput.trim() });
+      } else {
+        socket.connect();
+        socket.once('connect', () => {
+          onComplete({ name: name.trim(), avatar, roomId: roomInput.trim() });
+        });
+      }
     }
   }
 

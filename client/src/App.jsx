@@ -10,19 +10,23 @@ import GameOver from './components/GameOver';
 function RoomPage() {
   const { roomId }                  = useParams(); // read the :roomId from the URL
   const navigate                    = useNavigate();
-  const [phase, setPhase]           = useState('lobby');  // 'avatar'|'lobby'|'playing'|'finished'
+  // const hasSession                  = !!localStorage.getItem('lit_session');
+  const [phase, setPhase]           = useState('connecting');  // 'avatar'|'lobby'|'playing'|'finished'
   const [gameState, setGameState]   = useState(null);
   const [error, setError]           = useState(null);
+  const [room, setRoom]             = useState(null);
 
+  // Emit join_room once on mount — covers fresh join, reconnect, and mid-game refresh
   useEffect(() => {
     // Only attempt reconnect if we were mid-game
-    if (phase === 'lobby') return;
-    const { name, avatar } = JSON.parse(localStorage.getItem('lit_session') || '{}');
-    if (name) socket.emit('join_room', { roomId, name, avatar });
-  }, [roomId, phase]);
+    // if (phase === 'lobby') return;
 
-  // Socket listeners scoped to the room
-  useEffect(() => {
+    // room update implies lobby
+    socket.on('room_update', (snapshot) => {
+      setRoom(snapshot);
+      setPhase('lobby');
+    });
+
     socket.on('game_started', (state) => {
       setGameState(state);
       setPhase('playing');
@@ -44,17 +48,47 @@ function RoomPage() {
       setTimeout(() => setError(null), 4000);
     });
 
+    const raw = localStorage.getItem('lit_session');
+    if (!raw) { setPhase('lobby'); return; }
+    const { name, avatar } = JSON.parse(raw);
+    if (!name) { setPhase('lobby'); return; }
+    
+    if (socket.connected) {
+      socket.emit('join_room', { roomId, name, avatar });
+    } else {
+      socket.connect();
+      socket.once('connect', () => {
+        socket.emit('join_room', { roomId, name, avatar });
+      });
+    }
+    
     return () => {
+      socket.off('room_update');
       socket.off('game_started');
       socket.off('game_update');
       socket.off('game_over');
       socket.off('action_error');
     };
-  }, []);
+    
+  }, [roomId]);
 
   function handleLeave() {
     localStorage.removeItem('lit_session');     // ← clear on intentional leave
     navigate('/');
+  }
+
+  if (phase === 'connecting') {
+    return (
+      <div className="screen active">
+        <div className="lobby-wrap">
+          <div className="lobby-header">
+            <div style={{fontFamily:"'Baloo 2',sans-serif",fontSize:'24px',fontWeight:800,color:'#fff'}}>
+              Connecting…
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -65,7 +99,7 @@ function RoomPage() {
 
       {phase === 'lobby' && (
         <Lobby
-          roomId={roomId} onLeave={handleLeave}
+          roomId={roomId} initialRoom={room} onLeave={handleLeave}
         />
       )}
 
@@ -99,7 +133,7 @@ function RoomPage() {
               </div>
               <button
                 className="big-btn btn-orange"
-                onClick={() => {handleLeave}}
+                onClick={handleLeave}
               >
                 Play Again 🔄
               </button>
