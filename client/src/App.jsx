@@ -43,6 +43,12 @@ function RoomPage() {
       setGameState(prev => ({ ...prev, winner, score }));
     });
 
+    socket.on('game_expired', (message) => {
+      localStorage.removeItem('lit_session');   
+      setError(message);
+      navigate('/');
+    });
+
     socket.on('action_error', (message) => {
       setError(message);
       setTimeout(() => setError(null), 4000);
@@ -50,16 +56,14 @@ function RoomPage() {
 
     const raw = localStorage.getItem('lit_session');
     if (!raw) { setPhase('lobby'); return; }
-    const { name, avatar } = JSON.parse(raw);
+    const { name, avatar, playerToken } = JSON.parse(raw);
     if (!name) { setPhase('lobby'); return; }
     
-    if (socket.connected) {
-      socket.emit('join_room', { roomId, name, avatar });
-    } else {
+    const join = () => socket.emit('join_room', { roomId, name, avatar, playerToken });
+    if (socket.connected) join(); 
+    else {
       socket.connect();
-      socket.once('connect', () => {
-        socket.emit('join_room', { roomId, name, avatar });
-      });
+      socket.once('connect', join);
     }
     
     return () => {
@@ -67,6 +71,7 @@ function RoomPage() {
       socket.off('game_started');
       socket.off('game_update');
       socket.off('game_over');
+      socket.off('game_expired');
       socket.off('action_error');
     };
     
@@ -150,7 +155,8 @@ function HomePage() {
   const navigate = useNavigate();
 
   function handleAvatarComplete({ name, avatar, roomId }) {
-    localStorage.setItem('lit_session', JSON.stringify({ name, avatar }));
+    const playerToken = crypto.randomUUID(); // ← generate a unique token for this player
+    localStorage.setItem('lit_session', JSON.stringify({ name, avatar, playerToken }));
     navigate(`/room/${roomId}`);
     // RoomPage mounts, reads roomId from URL, name/avatar from localStorage,
     // and the Lobby component handles the actual join_room emit

@@ -72,6 +72,32 @@ if (process.env.NODE_ENV === 'production') {
 
 const rooms = {};
 
+const fs = require('fs');
+const SNAPSHOT = path.join(__dirname, 'rooms.snapshot.json');
+
+function persist() {
+  try {
+    // Strip live socket objects - only plain data is in 'rooms', so this is safe
+    fs.writeFileSync(SNAPSHOT, JSON.stringify(rooms));
+  } catch (e) { console.error('Failed to persist rooms snapshot:', e.message); }
+}
+
+function restore() {
+  try {
+    if (fs.existsSync(SNAPSHOT)) {
+      Object.assign(rooms, JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8')));
+      // Mark all players as disconnected on restore (sockets won't be valid)
+      for (const room of Object.values(rooms)) {
+        for (const player of Object.values(room.players)) {
+          player.disconnected = true;
+        }
+      }
+      console.log(`[restore] ${Object.keys(rooms).length} rooms restored from snapshot.`);
+    }
+  } catch (e) { console.error('Failed to restore rooms snapshot:', e.message); }
+}
+restore();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,6 +121,7 @@ function roomSnapshot(room) {
 function broadcastHands(room) {
   if (!room.gameState) return;
   for (const pid of Object.keys(room.gameState.hands)) {
+    if (room.players[pid].disconnected) continue; // skip disconnected players
     const sock = io.sockets.sockets.get(pid);
     if (sock) {
       sock.emit('hand_update', {
@@ -109,13 +136,11 @@ function broadcastHands(room) {
 function broadcastGameState(room) {
   if (!room.gameState) return;
   for (const pid of Object.keys(room.players)) {
+    if (room.players[pid].disconnected) continue; // skip disconnected players
     const sock = io.sockets.sockets.get(pid);
     if (sock) {
       sock.emit('game_update', getPublicState(room.gameState, pid));
-    } else {
-      // Socket not found — force emit to the room as fallback
-      io.to(pid).emit('game_update', getPublicState(room.gameState, pid));
-    }
+    } 
   } 
 }
 
@@ -177,20 +202,20 @@ io.on('connection', socket => {
 
   // ── create_room ─────────────────────────────────────────────────────────
 
-  socket.on('create_room', ({ name, avatar } = {}) => {
+  socket.on('create_room', ({ name, avatar, playerToken } = {}) => {
     console.log(`[create_room] socket=${socket.id} name=${name}`);
-    const roomId = _generateRoomId(); // add this helper from rooms.js to index.js
+    const roomId = _generateRoomId(); 
     socket.emit('room_created', { roomId }); // optional, so client knows the ID
     // then treat it exactly like join_room
     const room = getOrCreateRoom(roomId, socket.id);
     socket.join(roomId);
-    room.players[socket.id] = { id: socket.id, name: name.trim(), avatar, team: null };
+    room.players[socket.id] = { id: socket.id, name: name.trim(), team: null, avatar, playerToken  };
     io.to(roomId).emit('room_update', roomSnapshot(room));
   });
 
   // ── join_room ──────────────────────────────────────────────────────────────
   // payload: { roomId: string, name: string }
-  socket.on('join_room', ({ roomId, name, avatar } = {}) => {
+  socket.on('join_room', ({ roomId, name, avatar, playerToken } = {}) => {
     console.log(`[join_room] socket=${socket.id} name=${name} roomId=${roomId}`);
     if (!roomId || typeof roomId !== 'string' || roomId.trim() === '') {
       return socket.emit('action_error', 'Invalid room ID.');
@@ -200,12 +225,17 @@ io.on('connection', socket => {
       
     }
 
-    const room = getOrCreateRoom(roomId.trim(), socket.id);
+    // const room = getOrCreateRoom(roomId.trim(), socket.id);
+    const room = rooms[roomId.trim()];
+    if (!room) {
+      return socket.emit('game_expired', 'That game no longer exists.');
+    }
 
-    if (room.phase !== 'lobby') {
+    if (room.phase === 'playing') {
       // Check if this is a reconnect — same name as an existing player
-      const existingSlot = Object.values(room.players)
-      .find(p => p.name === name.trim());
+      const existingSlot = Object.values(room.players).find(
+        p => (playerToken && p.playerToken === playerToken) || p.name === name.trim()
+      );
 
       if (!existingSlot) {
         return socket.emit('action_error', 'Game already in progress — cannot join.');
@@ -213,6 +243,15 @@ io.on('connection', socket => {
 
       // Reconnect: transfer the old slot to the new socket ID
       const oldId = existingSlot.id;
+      
+      // Guard: a duplicate join_room arrived on the SAME socket.
+      if (oldId === socket.id) {
+        socket.join(roomId);
+        socket.emit('game_started', getPublicState(room.gameState, socket.id));
+        broadcastHands(room);
+        broadcastGameState(room);
+        return;
+      }
       // Disconnect if old slot is still connected
       const oldSock = io.sockets.sockets.get(oldId);
       if (oldSock) oldSock.disconnect(true);
@@ -251,6 +290,7 @@ io.on('connection', socket => {
       broadcastHands(room);
       broadcastGameState(room);
       io.to(roomId).emit('player_rejoined', { playerName: name.trim() });
+      persist();
       return;
     }
 
@@ -278,6 +318,7 @@ io.on('connection', socket => {
       name: name.trim(),
       team: null,
       avatar,
+      playerToken,
     };
 
     console.log(`[join_room] ${name} → ${roomId}`);
@@ -316,6 +357,7 @@ io.on('connection', socket => {
     try {
       room.gameState = createGame(room.id, players);
       room.phase     = 'playing';
+      persist();
     } catch (err) {
       return socket.emit('action_error', err.message);
     }
@@ -346,6 +388,7 @@ io.on('connection', socket => {
     if (!ok) return socket.emit('action_error', error);
 
     room.gameState = newState;
+    persist();
     if (newState.phase === 'finished') room.phase = 'finished';
 
     broadcastGameState(room);
@@ -376,6 +419,7 @@ io.on('connection', socket => {
     if (!ok) return socket.emit('action_error', error);
 
     room.gameState = newState;
+    persist();
     if (newState.phase === 'finished') room.phase = 'finished';
 
     broadcastGameState(room);
@@ -407,6 +451,7 @@ io.on('connection', socket => {
         }
         io.to(room.id).emit('room_update', roomSnapshot(room));
       }
+      persist();
     } else {
       // Mid-game: mark as disconnected but keep their slot and hand alive
       room.players[socket.id].disconnected = true;
@@ -415,9 +460,21 @@ io.on('connection', socket => {
         playerName: player?.name ?? 'Unknown',
         message:    `${player?.name ?? 'A player'} disconnected. Waiting for reconnect…`,
       });
+      persist();
+
+      const deadId = socket.id, roomId = room.id;
+      setTimeout(() => {
+        const r = rooms[roomId];
+        if (r && r.players[deadId]?.disconnected) {
+          delete r.players[deadId];
+          pruneRoom(roomId);
+          persist();
+        }
+      }, 5 * 60 * 1000); // 5 minutes
     }
   });
 });
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utility: find the room a socket is currently in
